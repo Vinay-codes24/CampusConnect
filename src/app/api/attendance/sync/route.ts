@@ -1,16 +1,22 @@
 import { NextRequest } from "next/server";
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { handler, json, ApiError, badRequest } from "@/lib/api";
+import { handler, json, ApiError, readBody, badRequest } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { getDB, mutate, now, uid } from "@/lib/db";
+import { consumeIMSSession } from "@/lib/ims";
 
 /**
  * POST /api/attendance/sync
  *
  * Launches the local scripts/nsut.py automation to extract attendance from
- * the student's IMS session. The student logs in manually in the Chrome window
- * that the script opens.
+ * the student's IMS session. Two supported flows:
+ *
+ *   1. Native login panel: when the body carries an `imsToken` produced by
+ *      /api/attendance/ims, the already-authenticated IMS session cookie is
+ *      handed to the script through the NSUT_IMS_SESSION environment
+ *      variable (never argv, never logged) so no second login is needed.
+ *   2. Fallback: the script opens Chrome and the student logs in manually.
  *
  * Architecture note: This works ONLY when CampusConnect runs locally on the
  * student's own Windows machine. The Node.js server spawns a Python child
@@ -80,8 +86,19 @@ export const POST = handler(async (req: NextRequest) => {
     throw new ApiError(403, "Only student accounts can sync attendance from IMS.");
   }
 
+  // Optional IMS session from the native login panel (one-time use).
+  const body = await readBody<{ imsToken?: string }>(req).catch(() => ({ imsToken: undefined }));
+
   if (syncInProgress) {
     throw new ApiError(429, "An attendance sync is already in progress. Please wait for it to finish.");
+  }
+
+  let imsSessionCookie: string | null = null;
+  if (body.imsToken) {
+    imsSessionCookie = consumeIMSSession(body.imsToken);
+    if (!imsSessionCookie) {
+      throw new ApiError(400, "The IMS connection expired before syncing. Please connect to NSUT IMS again.");
+    }
   }
 
   // Check Python availability.
@@ -110,6 +127,11 @@ export const POST = handler(async (req: NextRequest) => {
         cwd: projectRoot,
         timeout: 300000, // 5 minutes max
         windowsHide: true,
+        // Session cookie travels via the environment (not argv, not logged)
+        // and exists only for the lifetime of this child process.
+        env: imsSessionCookie
+          ? { ...process.env, NSUT_IMS_SESSION: imsSessionCookie }
+          : process.env,
       });
 
       let stdout = "";
@@ -128,10 +150,31 @@ export const POST = handler(async (req: NextRequest) => {
       });
 
       proc.on("close", (code) => {
-        if (code !== 0) {
+        if (code === null) {
           resolve({
             success: false,
-            error: stderr.trim() || `Python script exited with code ${code}.`,
+            error: "The attendance extractor timed out (5-minute limit). Please try again.",
+            step: "timeout",
+          });
+          return;
+        }
+
+        if (code !== 0) {
+          const lines = stderr
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter(Boolean);
+
+          // Diagnostic only: nsut.py logs navigation/status lines — never
+          // credentials, CAPTCHA answers, or the IMS session cookie.
+          console.warn("[sync] extractor exited", { code, tail: lines.slice(-5) });
+
+          // Prefer the explicit ERROR line; fall back to the last log line so
+          // the UI shows the real reason instead of a generic failure.
+          const errorLine = [...lines].reverse().find((l) => /^ERROR:/i.test(l));
+          resolve({
+            success: false,
+            error: errorLine ?? (lines.length ? lines[lines.length - 1] : `Python script exited with code ${code}.`),
             step: "script",
           });
           return;

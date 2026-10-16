@@ -21,6 +21,12 @@ SEMESTER = "3"
 # Auto mode: launched by CampusConnect server. Non-interactive, JSON to stdout.
 AUTO_MODE = "--auto" in sys.argv
 
+# Pre-authenticated IMS session handed over by the CampusConnect native login
+# panel (e.g. "PHPSESSID=abc123"). When present, the manual login + CAPTCHA
+# step is skipped by injecting this cookie into the browser session. The value
+# is NEVER logged and only lives in this process's environment.
+IMS_SESSION = os.getenv("NSUT_IMS_SESSION", "").strip()
+
 # Optional headless Chrome. This is OFF for the automatic NSUT CAPTCHA flow:
 # the student must solve the login CAPTCHA in a visible browser. Enable it only
 # for genuinely headless IMS sessions, via --headless or NSUT_HEADLESS=1.
@@ -571,6 +577,46 @@ def extract_attendance(driver):
     }
 
 
+def apply_ims_session(driver):
+    """Inject a pre-authenticated IMS session (from the native login panel).
+
+    The cookie value is read from the environment and never logged. Returns
+    True when IMS recognizes the session (login already complete), otherwise
+    False so the caller falls back to the normal manual login flow.
+    """
+    log("Trying the authenticated IMS session from CampusConnect...")
+
+    try:
+        driver.get(IMS_URL)
+
+        for part in IMS_SESSION.split(";"):
+            name, _, value = part.strip().partition("=")
+            if name and value:
+                driver.add_cookie({
+                    "name": name,
+                    "value": value,
+                    "domain": ".imsnsit.org",
+                    "path": "/",
+                })
+
+        # Load the student frameset: with an authenticated session its banner
+        # frame renders the portal menu ("My Activities") that wait_for_login
+        # looks for.
+        driver.get(IMS_URL + "student.htm")
+        time.sleep(2)
+
+        if wait_for_login(driver, timeout=20):
+            log("IMS session accepted; manual login not required.")
+            return True
+
+        log("Injected session not recognized; falling back to manual login.")
+        return False
+
+    except WebDriverException as error:
+        log(f"Could not apply IMS session ({type(error).__name__}); falling back to manual login.")
+        return False
+
+
 def main():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.add_argument("--window-size=1360,860")
@@ -580,7 +626,15 @@ def main():
         chrome_options.add_argument("--headless=new")
         chrome_options.add_argument("--disable-gpu")
 
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = None
+    try:
+        driver = webdriver.Chrome(options=chrome_options)
+    except WebDriverException as error:
+        # Startup failure (Chrome/ChromeDriver missing or incompatible).
+        # Never print the full traceback: it can contain local paths only.
+        log(f"ERROR: Could not start Chrome ({type(error).__name__}).")
+        log("Ensure Google Chrome is installed and up to date, then try again.")
+        sys.exit(1)
 
     if not HEADLESS_MODE:
         try:
@@ -588,20 +642,27 @@ def main():
         except WebDriverException:
             pass
     try:
-        # Step 1: Open IMS and click Student Login.
-        log("Opening IMS and clicking Student Login...")
-        click_student_login(driver)
+        # Step 1: Authenticate. Prefer the pre-authenticated session from the
+        # CampusConnect native login panel (no manual login needed); otherwise
+        # open IMS and click Student Login for the manual CAPTCHA flow.
+        session_logged_in = False
+        if IMS_SESSION and AUTO_MODE:
+            session_logged_in = apply_ims_session(driver)
 
-        # Step 2: Wait for the student to log in manually.
-        if AUTO_MODE:
-            if not wait_for_login(driver):
-                log("ERROR: Login not detected within timeout period.")
-                return
-        else:
-            input(
-                "\nEnter your password and solve the CAPTCHA. "
-                "When the student homepage appears, press ENTER here..."
-            )
+        if not session_logged_in:
+            log("Opening IMS and clicking Student Login...")
+            click_student_login(driver)
+
+            # Step 2: Wait for the student to log in manually.
+            if AUTO_MODE:
+                if not wait_for_login(driver):
+                    log("ERROR: Login was not completed within the time limit.")
+                    sys.exit(1)
+            else:
+                input(
+                    "\nEnter your password and solve the CAPTCHA. "
+                    "When the student homepage appears, press ENTER here..."
+                )
 
         time.sleep(2)
 
@@ -658,8 +719,9 @@ def main():
         data = extract_attendance(driver)
 
         if data is None:
-            log("ERROR: Extraction failed. No attendance data found.")
-            return
+            log("ERROR: No attendance report was found on the IMS page.")
+            log("Check the Chrome window for a login or navigation problem, then try again.")
+            sys.exit(1)
 
         log("Extraction complete.")
         log("Subjects found: " + str(len(data["subjects"])))
@@ -702,12 +764,15 @@ def main():
             input("\nPress ENTER to close Chrome...")
 
     except Exception as error:
-        log(f"ERROR: Something went wrong: {error}")
-        if not AUTO_MODE:
-            input("Press ENTER to close Chrome...")
+        # Message only — never the full traceback, which can include local paths.
+        log(f"ERROR: Something went wrong ({type(error).__name__}): {error}")
+        if AUTO_MODE:
+            sys.exit(1)
+        input("Press ENTER to close Chrome...")
 
     finally:
-        driver.quit()
+        if driver is not None:
+            driver.quit()
 
 
 if __name__ == "__main__":
