@@ -1,11 +1,19 @@
 "use client";
 
-import { BookOpen, CalendarClock, CalendarHeart, GraduationCap, Gauge } from "lucide-react";
+import { BookOpen, CalendarCheck, CalendarClock, CalendarHeart, Gauge } from "lucide-react";
+
+/**
+ * Color identity per academic section — mapped to CSS variables by the
+ * `data-tone` attribute on each card (see .feature-card[data-tone] in
+ * globals.css). One coordinated palette, one shared card design.
+ */
+export type FeatureTone = "blue" | "emerald" | "pink" | "purple" | "green";
 
 export interface FeatureCard {
   href: string;
   icon: React.ReactNode;
   title: string;
+  tone: FeatureTone;
 }
 
 /**
@@ -20,28 +28,33 @@ export function featureCards(_universityId: string): FeatureCard[] {
   return [
     {
       href: "/academics/timetable",
-      icon: <CalendarClock size={20} />,
+      icon: <CalendarClock size={42} strokeWidth={2} />,
       title: "Timetable",
+      tone: "blue",
     },
     {
       href: "/academics/attendance",
-      icon: <Gauge size={20} />,
+      icon: <Gauge size={42} strokeWidth={2} />,
       title: "Attendance",
+      tone: "emerald",
     },
     {
       href: "/academics/holidays",
-      icon: <CalendarHeart size={20} />,
+      icon: <CalendarHeart size={42} strokeWidth={2} />,
       title: "Holidays",
+      tone: "pink",
     },
     {
       href: "/academics/academic-calendar",
-      icon: <GraduationCap size={20} />,
+      icon: <CalendarCheck size={42} strokeWidth={2} />,
       title: "Academic Calendar",
+      tone: "purple",
     },
     {
       href: "/academics/syllabus",
-      icon: <BookOpen size={20} />,
+      icon: <BookOpen size={42} strokeWidth={2} />,
       title: "Subjects",
+      tone: "green",
     },
   ];
 }
