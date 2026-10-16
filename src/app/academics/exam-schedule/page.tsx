@@ -7,8 +7,6 @@ import type { Exam } from "@/lib/types";
 import {
   AcademicPage,
   Chip,
-  DemoBadge,
-  LoadingCards,
   countdownLabel,
   daysUntil,
   formatClock,

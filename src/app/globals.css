@@ -129,49 +129,25 @@
 /* ------------------ posts page: rail + feed (Reddit-style) --------------- */
 
 .posts-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
-  justify-content: center;
+  display: block;
 }
 
-/* Mobile: the rail stacks underneath the feed so content stays on top. */
+/* Mobile: the feed stays full-width. */
 .posts-feed {
   min-width: 0;
   width: 100%;
-  max-width: 780px;
+  max-width: 960px;
   margin-inline: auto;
-  order: 1;
+  order: 0;
 }
 
 .posts-rail {
-  min-width: 0;
-  width: 100%;
-  max-width: 780px;
-  margin-inline: auto;
-  order: 2;
+  display: none;
 }
 
 @media (min-width: 1024px) {
   .posts-layout {
-    grid-template-columns: 300px minmax(0, 780px);
-  }
-
-  .posts-feed,
-  .posts-rail {
-    max-width: none;
-    order: 0;
-  }
-
-  .posts-rail {
-    position: sticky;
-    top: 126px;
-    max-height: calc(100vh - 144px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    padding-right: 2px;
+    display: block;
   }
 }
 
@@ -214,6 +190,18 @@
   color: var(--color-brand-700);
 }
 
+/* Active college community link — tinted with the college's own colour. */
+.rail-link[aria-current="page"] {
+  background: var(--pc-soft, var(--color-brand-50));
+  border-color: var(--pc-border, var(--color-brand-200));
+  color: var(--pc, var(--color-brand-700));
+}
+
+.rail-link[aria-current="page"] .cmt-icon {
+  background: var(--pc, var(--color-brand-600));
+  color: #fff;
+}
+
 /* Community avatar tiles — one hue per community tone. */
 .cmt-icon {
   width: 34px;
@@ -252,6 +240,218 @@
 .cmt-amber {
   background: #fef3c7;
   color: #b45309;
+}
+
+/* College communities: Reddit-style switcher, banner and tags. */
+
+.college-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  background: #fff;
+  border: 1px solid var(--color-ink-200);
+  border-radius: 16px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: thin;
+}
+
+.college-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px 5px 5px;
+  border-radius: 999px;
+  border: 1px solid var(--color-ink-200);
+  background: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-ink-700);
+  text-decoration: none;
+  white-space: nowrap;
+  flex: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.college-pill:hover {
+  background: var(--pc-soft, var(--color-brand-50));
+  border-color: var(--pc-border, var(--color-brand-300));
+  color: var(--pc, var(--color-brand-700));
+}
+
+.college-pill[data-active="true"] {
+  background: var(--pc-soft, var(--color-brand-50));
+  border-color: var(--pc-border, var(--color-brand-300));
+  color: var(--pc, var(--color-brand-700));
+}
+
+.college-emblem {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--pc, var(--color-brand-600));
+  color: #fff;
+}
+
+/* Community header banner (college identity + live post count). */
+.college-header {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 22px;
+  border-radius: 18px;
+  color: #fff;
+  box-shadow: 0 14px 30px -20px rgba(15, 23, 42, 0.55);
+}
+
+.college-header-emblem {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.college-header-title {
+  font-size: clamp(20px, 3vw, 25px);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  margin: 0;
+  color: #fff;
+}
+
+.college-header-desc {
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 7px 0 0;
+  max-width: 64ch;
+}
+
+.college-header-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 11px;
+}
+
+.college-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+
+/* Join/Joined control shown on the community header for an individual college. */
+.college-join-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.college-join-btn {
+  background: #ffffff;
+  color: var(--pc, var(--color-brand-700));
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  min-width: 88px;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.college-join-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.college-join-btn.is-joined {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.college-join-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.college-join-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: right;
+  max-width: 150px;
+  line-height: 1.3;
+}
+
+@media (max-width: 640px) {
+  .college-header {
+    flex-wrap: wrap;
+  }
+
+  .college-join-slot {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    margin-left: 0;
+  }
+
+  .college-join-hint {
+    text-align: right;
+  }
+}
+
+/* College pill row inside the create-post composer. */
+.college-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* College tag on post cards — tinted with the community's own colour. */
+.tag-college {
+  background: var(--pc-soft, var(--color-brand-50));
+  color: var(--pc, var(--color-brand-700));
+  border-color: var(--pc-border, var(--color-brand-100));
+}
+
+@media (max-width: 640px) {
+  .college-header {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .college-header-emblem {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+  }
+
+  .college-bar {
+    padding: 8px;
+    border-radius: 14px;
+  }
 }
 
 /* ------------------------------- header -------------------------------- */

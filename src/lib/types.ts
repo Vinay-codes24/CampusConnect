@@ -4,6 +4,8 @@
 // In demo mode these are persisted to data/db.json through src/lib/db.ts.
 // ---------------------------------------------------------------------------
 
+import type { UniversityId } from "./universities";
+
 export type Role = "student" | "faculty" | "organizer" | "admin";
 
 export const ROLES: Role[] = ["student", "faculty", "organizer", "admin"];
@@ -62,7 +64,12 @@ export type PostCategory =
   | "Campus Life"
   | "Memes"
   | "Announcement"
-  | "Discussion";
+  | "Discussion"
+  | "Kalesh"
+  | "Tea"
+  | "Gossips"
+  | "Rant"
+  | "Jobs";
 
 export const POST_CATEGORIES: PostCategory[] = [
   "Question",
@@ -71,6 +78,32 @@ export const POST_CATEGORIES: PostCategory[] = [
   "Memes",
   "Announcement",
   "Discussion",
+  "Kalesh",
+  "Tea",
+  "Gossips",
+  "Rant",
+  "Jobs",
+];
+
+// --------------------------- College communities --------------------------
+// Structured post metadata (Reddit-style college communities). These are
+// database fields, never free-text hashtags.
+
+/** The college community a post belongs to (shared with the campus picker). */
+export type PostCollege = UniversityId;
+
+export type Program = "B.Tech" | "BBA" | "Design" | "M.Tech" | "MBA";
+
+export const PROGRAMS: Program[] = ["B.Tech", "BBA", "Design", "M.Tech", "MBA"];
+
+export type YearStatus = "1st Year" | "2nd Year" | "3rd Year" | "4th Year" | "Alumni";
+
+export const YEAR_STATUSES: YearStatus[] = [
+  "1st Year",
+  "2nd Year",
+  "3rd Year",
+  "4th Year",
+  "Alumni",
 ];
 
 export interface Community {
@@ -108,6 +141,12 @@ export interface Post {
   downvotes: number;
   commentCount: number;
   removed: boolean;
+  /** College community (self-selected structured field). */
+  college?: PostCollege | null;
+  /** Degree programme tag; posts created before this field existed have none. */
+  program?: Program | null;
+  /** Year or status tag ("Alumni" counts as a status). */
+  yearStatus?: YearStatus | null;
 }
 
 export interface Comment {
@@ -383,6 +422,65 @@ export const DEPARTMENTS = [
 export const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 export const SEMESTERS = ["Semester 1", "Semester 2", "Semester 3", "Semester 4", "Semester 5", "Semester 6", "Semester 7", "Semester 8"];
 
+// --------------------------- Societies -------------------------------------
+//
+// College societies are VERIFIED records only. When an official dataset has not
+// been loaded, `db.societies` stays empty and the UI renders its empty state
+// rather than inventing clubs, members, contacts or achievements.
+
+export const SOCIETY_CATEGORIES = [
+  "Technical",
+  "Coding",
+  "Robotics",
+  "Cultural",
+  "Music",
+  "Dance",
+  "Drama",
+  "Photography",
+  "Literary",
+  "Entrepreneurship",
+  "Social Impact",
+  "Sports",
+  "Design",
+  "Research",
+] as const;
+
+export type SocietyCategory = (typeof SOCIETY_CATEGORIES)[number];
+
+export interface SocietyMember {
+  id: string;
+  userId: string;
+  societyId: string;
+  joinedAt: string;
+}
+
+export interface Society {
+  id: string;
+  collegeId: UniversityId;
+  name: string;
+  category: SocietyCategory;
+  /** One-line summary used on cards and headers. */
+  shortDescription: string;
+  /** Full description stored on the details page. */
+  fullDescription: string;
+  /** Optional short tagline if verified. */
+  tagline: string | null;
+  /** Verified image URL if one is available. */
+  logo: string | null;
+  /** Optional icon key resolved in the UI. */
+  icon: string | null;
+  /** Verified official website, or null until confirmed. */
+  officialWebsite: string | null;
+  /** Verified contact channel, or null until confirmed. */
+  contact: string | null;
+  mission: string;
+  areasOfInterest: string[];
+  achievements: string[];
+  activities: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ----------------------------- Root DB ------------------------------------
 
 export interface ResetToken {
@@ -404,6 +502,8 @@ export interface Database {
   votes: Vote[];
   reports: Report[];
   events: CampusEvent[];
+  societies: Society[];
+  societyMembers: SocietyMember[];
   registrations: Registration[];
   notifications: AppNotification[];
   reads: ReadMarker[];

@@ -4,7 +4,6 @@ import { CalendarHeart, PartyPopper, Sparkles } from "lucide-react";
 import { type UniversityHoliday } from "@/lib/universities";
 import {
   AcademicPage,
-  DemoBadge,
   countdownLabel,
   daysUntil,
   useSelectedUniversity,
@@ -32,7 +31,7 @@ export default function HolidaysPage() {
       state={state}
       retry={retry}
     >
-      {(data) => (
+      {() => (
         <>
           {!ready ? (
             <section className="card card-pad row" style={{ gap: 10 }} aria-busy="true">

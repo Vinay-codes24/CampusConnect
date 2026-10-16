@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft, LogIn } from "lucide-react";
-import { api, timeAgo, formatDay, formatClock, parseDay, daysUntil, countdownLabel } from "@/lib/client";
+import { api } from "@/lib/client";
 import { useApp } from "@/components/providers";
 import {
   coerceUniversityId,

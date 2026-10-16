@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowUpRight, BookOpen, CalendarClock, CalendarHeart, GraduationCap, Gauge } from "lucide-react";
 import { useApp } from "@/components/providers";
-import { UNIVERSITIES, findUniversity, readStoredUniversity, writeStoredUniversity, clearStoredUniversity } from "@/lib/universities";
+import { findUniversity, readStoredUniversity, writeStoredUniversity, clearStoredUniversity } from "@/lib/universities";
 import { api } from "@/lib/client";
 import { UniversityGrid } from "@/components/academics/university-grid";
 import { featureCards } from "@/components/academics/feature-cards";

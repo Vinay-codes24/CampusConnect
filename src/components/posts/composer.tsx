@@ -1,11 +1,20 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Eye, Image as ImageIcon, Link2, Loader2, PenLine, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Eye, GraduationCap, Image as ImageIcon, LayoutGrid, Link2, Loader2, PenLine, X } from "lucide-react";
 import { Modal, Avatar } from "@/components/ui";
 import { api, formatBytes } from "@/lib/client";
 import { useApp } from "@/components/providers";
-import { POST_CATEGORIES, type Media, type PostCategory } from "@/lib/types";
+import {
+  PROGRAMS,
+  YEAR_STATUSES,
+  type Media,
+  type PostCategory,
+  type Program,
+  type YearStatus,
+} from "@/lib/types";
+import { COLLEGE_COMMUNITIES, findCollege } from "@/lib/colleges";
+import type { UniversityId } from "@/lib/universities";
 import type { PostView } from "@/lib/serialize";
 
 type Draft = {
@@ -13,23 +22,41 @@ type Draft = {
   body: string;
   category: PostCategory;
   media: Media[];
+  college: UniversityId | null;
+  program: Program | null;
+  yearStatus: YearStatus | null;
 };
 
-const EMPTY: Draft = { title: "", body: "", category: "Discussion", media: [] };
+const EMPTY: Draft = {
+  title: "",
+  body: "",
+  category: "Discussion",
+  media: [],
+  college: null,
+  program: null,
+  yearStatus: null,
+};
 
 const QUICK_TYPES: { category: PostCategory; label: string }[] = [
-  { category: "Discussion", label: "Text" },
-  { category: "Memes", label: "Meme" },
   { category: "Question", label: "Question" },
-  { category: "Announcement", label: "Announcement" },
   { category: "Study Resources", label: "Study tip" },
   { category: "Campus Life", label: "Campus life" },
+  { category: "Memes", label: "Meme" },
+  { category: "Kalesh", label: "Kalesh" },
+  { category: "Tea", label: "Tea" },
+  { category: "Gossips", label: "Gossips" },
+  { category: "Rant", label: "Rant" },
+  { category: "Jobs", label: "Jobs" },
+  { category: "Discussion", label: "Text" },
+  { category: "Announcement", label: "Announcement" },
 ];
 
 /**
  * Create-post composer: text, image, video, meme, question, announcement or
  * study tip, with a live preview before publishing. When `communityId` is set
- * (the rail on /posts has a community selected) the post is published there.
+ * (the rail on /posts has a topic community selected) the post is published
+ * there, and when `collegeId` is set (opened from a college community) that
+ * college is preselected — the user can always change it.
  */
 export function Composer({
   open,
@@ -37,12 +64,14 @@ export function Composer({
   onCreated,
   communityId,
   communityName,
+  collegeId,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated: (post: PostView) => void;
   communityId?: string | null;
   communityName?: string | null;
+  collegeId?: UniversityId | null;
 }) {
   const { user, toast } = useApp();
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -50,7 +79,16 @@ export function Composer({
   const [pending, setPending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Once the user picks a college pill themselves, auto-preselect stops.
+  const [collegeTouched, setCollegeTouched] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Entering a college community preselects it for the new post.
+  useEffect(() => {
+    if (open && !collegeTouched) {
+      setDraft((d) => ({ ...d, college: collegeId ?? null }));
+    }
+  }, [open, collegeId, collegeTouched]);
 
   function update(patch: Partial<Draft>) {
     setDraft((d) => ({ ...d, ...patch }));
@@ -112,6 +150,9 @@ export function Composer({
           category: draft.category,
           media: draft.media,
           communityId: communityId ?? null,
+          college: draft.college,
+          program: draft.program,
+          yearStatus: draft.yearStatus,
         },
       });
       toast("Your post is live 🎉", "success");
@@ -158,6 +199,61 @@ export function Composer({
         </p>
       ) : null}
 
+      {/* college community — the obvious first choice, preselected on entry */}
+      <div className="field" style={{ marginBottom: 14 }}>
+        <span className="label" id="composer-college-label">
+          College community
+        </span>
+        <div className="college-picker" role="group" aria-labelledby="composer-college-label">
+          <button
+            type="button"
+            className="college-pill"
+            data-active={draft.college === null}
+            aria-pressed={draft.college === null}
+            onClick={() => {
+              setDraft((d) => ({ ...d, college: null }));
+              setCollegeTouched(true);
+              setError(null);
+            }}
+          >
+            <span className="college-emblem" aria-hidden="true">
+              <LayoutGrid size={15} />
+            </span>
+            All Colleges
+          </button>
+          {COLLEGE_COMMUNITIES.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className="college-pill"
+              data-active={draft.college === c.id}
+              aria-pressed={draft.college === c.id}
+              style={
+                {
+                  "--pc": c.color,
+                  "--pc-soft": c.soft,
+                  "--pc-border": c.border,
+                } as React.CSSProperties
+              }
+              onClick={() => {
+                setDraft((d) => ({ ...d, college: c.id }));
+                setCollegeTouched(true);
+                setError(null);
+              }}
+            >
+              <span className="college-emblem" aria-hidden="true">
+                <GraduationCap size={15} />
+              </span>
+              {c.shortName}
+            </button>
+          ))}
+        </div>
+        <span className="hint">
+          Self-selected — this becomes the college tag shown on your post.{" "}
+          {draft.college ? `Posting to ${findCollege(draft.college)?.shortName ?? draft.college}.` : "Visible in the All Colleges feed."}
+        </span>
+      </div>
+
       <div className="row" style={{ marginBottom: 14, flexWrap: "wrap" }}>
         <span className="label" style={{ marginRight: 4 }}>
           Post type
@@ -173,6 +269,46 @@ export function Composer({
             {t.label}
           </button>
         ))}
+      </div>
+
+      {/* structured programme + year/status tags */}
+      <div className="row" style={{ marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
+        <div className="field" style={{ flex: "1 1 150px" }}>
+          <label className="label" htmlFor="composer-program">
+            Program
+          </label>
+          <select
+            id="composer-program"
+            className="select"
+            value={draft.program ?? ""}
+            onChange={(e) => update({ program: (e.target.value || null) as Program | null })}
+          >
+            <option value="">Not specified</option>
+            {PROGRAMS.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field" style={{ flex: "1 1 150px" }}>
+          <label className="label" htmlFor="composer-year">
+            Year or status
+          </label>
+          <select
+            id="composer-year"
+            className="select"
+            value={draft.yearStatus ?? ""}
+            onChange={(e) => update({ yearStatus: (e.target.value || null) as YearStatus | null })}
+          >
+            <option value="">Not specified</option>
+            {YEAR_STATUSES.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {preview ? (
@@ -274,8 +410,33 @@ function Preview({ draft, user }: { draft: Draft; user: { name: string; departme
             {[user?.department, user?.year].filter(Boolean).join(" · ") || "Not set"} · just now
           </div>
         </div>
-        <span className="tag" style={{ marginLeft: "auto" }}>
-          {draft.category}
+        <span className="row" style={{ marginLeft: "auto", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {draft.college && findCollege(draft.college) ? (
+            <span
+              className="tag tag-college"
+              style={
+                {
+                  "--pc": findCollege(draft.college)!.color,
+                  "--pc-soft": findCollege(draft.college)!.soft,
+                  "--pc-border": findCollege(draft.college)!.border,
+                  textTransform: "none",
+                } as React.CSSProperties
+              }
+            >
+              {findCollege(draft.college)!.shortName}
+            </span>
+          ) : null}
+          {draft.program ? (
+            <span className="tag tag-muted" style={{ textTransform: "none" }}>
+              {draft.program}
+            </span>
+          ) : null}
+          {draft.yearStatus ? (
+            <span className="tag tag-muted" style={{ textTransform: "none" }}>
+              {draft.yearStatus}
+            </span>
+          ) : null}
+          <span className="tag">{draft.category}</span>
         </span>
       </div>
 

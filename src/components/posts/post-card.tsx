@@ -18,10 +18,26 @@ import {
 import { Avatar } from "@/components/ui";
 import { api, formatBytes, timeAgo } from "@/lib/client";
 import { useApp } from "@/components/providers";
+import { findCollege } from "@/lib/colleges";
 import type { PostView } from "@/lib/serialize";
 import { CommentThread } from "./comment-thread";
 import { ReportDialog } from "./report-dialog";
 import { shareLink } from "./share";
+
+function categoryColors(category: string): { bg: string; fg: string } {
+  switch (category) {
+    case "Kalesh": return { bg: "#ffe7e0", fg: "#c2410c" };
+    case "Tea": return { bg: "#fef3c7", fg: "#92400e" };
+    case "Gossips": return { bg: "#f3e8ff", fg: "#6b21a8" };
+    case "Rant": return { bg: "#ffe4e6", fg: "#be123c" };
+    case "Jobs": return { bg: "#dbeafe", fg: "#1d4ed8" };
+    case "Memes": return { bg: "#e0e7ff", fg: "#4338ca" };
+    case "Question": return { bg: "#e0f2fe", fg: "#0369a1" };
+    case "Study Resources": return { bg: "#dcfce7", fg: "#15803d" };
+    case "Campus Life": return { bg: "#f0fdf4", fg: "#166534" };
+    default: return { bg: "#f1f5f9", fg: "#475569" };
+  }
+}
 
 const CLAMP = 620;
 
@@ -47,6 +63,7 @@ export function PostCard({
 
   const longBody = post.body.length > CLAMP;
   const visibleBody = !longBody || expanded ? post.body : `${post.body.slice(0, CLAMP).trimEnd()}…`;
+  const college = post.college ? findCollege(post.college) : null;
 
   async function vote(value: 1 | -1) {
     if (!user) {
@@ -99,6 +116,21 @@ export function PostCard({
 
   return (
     <article className="panel card-pad" aria-label={`Post by ${post.author.name}`}>
+      {/* title — first, bold */}
+      <Link href={`/posts/${post.id}`} style={{ display: "block" }}>
+        <h2
+          style={{
+            fontSize: "clamp(19px, 2.2vw, 23px)",
+            fontWeight: 700,
+            lineHeight: 1.3,
+            marginBottom: 10,
+            color: "var(--color-ink-900)",
+          }}
+        >
+          {post.title}
+        </h2>
+      </Link>
+
       {/* header */}
       <div className="row" style={{ gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
         <Link href={`/profile/${post.author.id}`} className="row" style={{ gap: 10, minWidth: 0 }}>
@@ -114,20 +146,51 @@ export function PostCard({
           </span>
         </Link>
 
-        {post.community ? (
-          <Link
-            href={`/posts?community=${post.community.id}`}
-            className="tag tag-accent"
-            style={{ marginLeft: "auto" }}
-            title={`View posts in ${post.community.name}`}
-          >
-            r/{post.community.slug}
-          </Link>
-        ) : null}
-
-        <span className="tag" style={post.community ? undefined : { marginLeft: "auto" }}>
-          {post.category}
-        </span>
+        {/* structured metadata + community tags (right-aligned group) */}
+        <div
+          className="row"
+          style={{ gap: 6, marginLeft: "auto", flexWrap: "wrap", justifyContent: "flex-end" }}
+        >
+          {college ? (
+            <Link
+              href={`/posts/college/${college.id}`}
+              className="tag tag-college"
+              style={
+                {
+                  "--pc": college.color,
+                  "--pc-soft": college.soft,
+                  "--pc-border": college.border,
+                  textTransform: "none",
+                } as React.CSSProperties
+              }
+              title={`View the ${college.shortName} college community`}
+            >
+              {college.shortName}
+            </Link>
+          ) : null}
+          {post.program ? (
+            <span className="tag tag-muted" style={{ textTransform: "none" }}>
+              {post.program}
+            </span>
+          ) : null}
+          {post.yearStatus ? (
+            <span className="tag tag-muted" style={{ textTransform: "none" }}>
+              {post.yearStatus}
+            </span>
+          ) : null}
+          {post.community ? (
+            <Link
+              href={`/posts?community=${post.community.id}`}
+              className="tag tag-accent"
+              title={`View posts in ${post.community.name}`}
+            >
+              r/{post.community.slug}
+            </Link>
+          ) : null}
+          <span className="tag" style={{ background: categoryColors(post.category).bg, color: categoryColors(post.category).fg, borderColor: "transparent" }}>
+  {post.category}
+</span>
+        </div>
 
         <div style={{ position: "relative" }}>
           <button
@@ -178,10 +241,6 @@ export function PostCard({
       </div>
 
       {/* body */}
-      <Link href={`/posts/${post.id}`} style={{ display: "block" }}>
-        <h2 style={{ fontSize: 20, marginBottom: 8 }}>{post.title}</h2>
-      </Link>
-
       {post.body ? (
         <p style={{ whiteSpace: "pre-wrap", fontSize: 14.5, color: "var(--color-ink-700)", marginBottom: 12 }}>{visibleBody}</p>
       ) : null}

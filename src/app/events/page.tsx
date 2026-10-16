@@ -73,7 +73,8 @@ function EventsBrowser() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [featured, setFeatured] = useState<EventView[]>([]);
+  // Featured-event grouping has been intentionally retired. The Events page now
+  // surfaces one consistent event list to keep Featured and All lists in sync.
 
   const tab = filter === "mine" ? "mine" : "browse";
   const canCreate = !!user && user.role !== "student";
@@ -142,17 +143,8 @@ function EventsBrowser() {
 
   const updateEvent = useCallback((next: EventView) => {
     setEvents((list) => list.map((e) => (e.id === next.id ? next : e)));
-    setFeatured((list) => list.map((e) => (e.id === next.id ? next : e)));
   }, []);
 
-  /* Fetch featured events (first 2 upcoming, open events). */
-  useEffect(() => {
-    api<{ events: EventView[] }>("/api/events?filter=upcoming&limit=2")
-      .then((data) => setFeatured(data.events.filter((e) => e.status === "open" || e.status === "registered").slice(0, 2)))
-      .catch(() => undefined);
-  }, []);
-
-  const showFeatured = tab === "browse" && filter === "upcoming" && !q && featured.length > 0 && !loading && !error;
 
   return (
     <div className="container stack" style={{ gap: 20 }}>
@@ -278,22 +270,6 @@ function EventsBrowser() {
       </div>
 
       {/* ── Featured events ── */}
-      {showFeatured ? (
-        <div className="panel card-pad" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <h2 style={{ fontSize: 18 }}>Featured Events</h2>
-            <p className="text-sm muted" style={{ marginTop: 2 }}>
-              Don&rsquo;t miss these upcoming highlights.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            {featured.map((event) => (
-              <EventCard key={event.id} event={event} onChange={updateEvent} />
-            ))}
-          </div>
-        </div>
-      ) : null}
-
       {/* ── All events grid ── */}
       <div className="panel card-pad" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>

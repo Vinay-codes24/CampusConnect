@@ -6,8 +6,6 @@ import { EmptyState } from "@/components/ui";
 import {
   AcademicPage,
   Chip,
-  DemoBadge,
-  LoadingCards,
   SearchField,
   Toolbar,
   daysUntil,

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { handler, json, readBody, ApiError, badRequest } from "@/lib/api";
+import { handler, json, readBody, badRequest } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { getDB, mutate, now, uid } from "@/lib/db";
 

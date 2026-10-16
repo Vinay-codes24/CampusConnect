@@ -8,7 +8,6 @@ import type { AttendanceRecord } from "@/lib/types";
 import {
   AcademicPage,
   DemoBadge,
-  LoadingCards,
   STATUS_COLOUR,
   STATUS_TAG,
   aggregateAttendance,

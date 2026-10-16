@@ -8,8 +8,6 @@ import { DEPARTMENTS, SEMESTERS, type MaterialType } from "@/lib/types";
 import {
   AcademicPage,
   Chip,
-  DemoBadge,
-  LoadingCards,
   SearchField,
   SelectField,
   Toolbar,

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { handler, json, ApiError, readBody, badRequest } from "@/lib/api";
+import { handler, json, ApiError, readBody } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { getDB, mutate, now, uid } from "@/lib/db";
 import { consumeIMSSession } from "@/lib/ims";

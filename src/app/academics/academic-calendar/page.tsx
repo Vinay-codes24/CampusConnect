@@ -13,8 +13,6 @@ import { EmptyState } from "@/components/ui";
 import type { Exam } from "@/lib/types";
 import {
   AcademicPage,
-  DemoBadge,
-  LoadingCards,
   countdownLabel,
   daysUntil,
   formatClock,

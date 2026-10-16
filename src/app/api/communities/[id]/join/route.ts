@@ -1,5 +1,5 @@
 import { handler, json, ApiError } from "@/lib/api";
-import { getDB, mutate, now, uid } from "@/lib/db";
+import { mutate, now, uid } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 
 /**

@@ -6,8 +6,6 @@ import { EmptyState } from "@/components/ui";
 import { DEPARTMENTS, SEMESTERS, type SyllabusSubject } from "@/lib/types";
 import {
   AcademicPage,
-  DemoBadge,
-  LoadingCards,
   SelectField,
   Toolbar,
   unique,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck, CircleAlert, Inbox, Megaphone } from "lucide-react";
 import { api, formatDate, timeAgo } from "@/lib/client";

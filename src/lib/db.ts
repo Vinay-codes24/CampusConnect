@@ -66,6 +66,8 @@ function ensureCollections(db: Database): boolean {
     "votes",
     "reports",
     "events",
+    "societies",
+    "societyMembers",
     "registrations",
     "notifications",
     "reads",

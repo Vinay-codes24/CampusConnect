@@ -10,7 +10,6 @@ import type { PublicUser } from "@/lib/types";
 import type { PostView } from "@/lib/serialize";
 import type { EventView } from "@/lib/events";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui";
-import { SignInPrompt } from "@/components/account/auth-card";
 import { ProfileCard, ProfileEventRow, ProfilePostRow, TabBar, type ProfileStats } from "@/components/account/profile-card";
 
 type ProfileResponse = {

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { handler, json, readBody, ApiError } from "@/lib/api";
-import { getDB, mutate, now, uid } from "@/lib/db";
+import { mutate, now, uid } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { DEPARTMENTS, SEMESTERS, type AppNotification, type Database } from "@/lib/types";
 import { isoDate, oneOf, optional, str, strings } from "@/lib/validation";

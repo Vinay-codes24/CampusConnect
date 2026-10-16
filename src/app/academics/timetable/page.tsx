@@ -14,11 +14,7 @@ import { EmptyState } from "@/components/ui";
 import { DAYS, type DayName, type Slot } from "@/lib/types";
 import {
   AcademicPage,
-  BackLink,
   Chip,
-  DemoBadge,
-  LoadingCards,
-  PageHead,
   formatClock,
   minutesOf,
   pickTimetable,
