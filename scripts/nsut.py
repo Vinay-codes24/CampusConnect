@@ -14,6 +14,7 @@ from selenium.common.exceptions import WebDriverException
 
 IMS_URL = "https://imsnsit.org/imsnsit/"
 OUTPUT_FILE = Path(__file__).resolve().parent.parent / "attendance_export.json"
+CREDENTIALS_FILE = Path(__file__).resolve().parent.parent / ".nsut_creds.json"
 
 ACADEMIC_YEAR = "2026-27"
 SEMESTER = "3"
@@ -27,13 +28,28 @@ AUTO_MODE = "--auto" in sys.argv
 # is NEVER logged and only lives in this process's environment.
 IMS_SESSION = os.getenv("NSUT_IMS_SESSION", "").strip()
 
-# Optional headless Chrome. This is OFF for the automatic NSUT CAPTCHA flow:
-# the student must solve the login CAPTCHA in a visible browser. Enable it only
-# for genuinely headless IMS sessions, via --headless or NSUT_HEADLESS=1.
+# Optional headless Chrome. Enable via --headless or NSUT_HEADLESS=1.
 HEADLESS_MODE = (
     "--headless" in sys.argv
     or os.getenv("NSUT_HEADLESS", "").strip().lower() in {"1", "true", "yes"}
 )
+
+# Automated CAPTCHA solving support (ddddocr)
+try:
+    import ddddocr
+    _ocr_instance = None
+
+    def get_ocr():
+        global _ocr_instance
+        if _ocr_instance is None:
+            _ocr_instance = ddddocr.DdddOcr(show_ad=False)
+        return _ocr_instance
+
+    HAS_DDDDOCR = True
+except ImportError:
+    HAS_DDDDOCR = False
+    get_ocr = None
+
 
 def clean(text):
     return " ".join(text.replace("\xa0", " ").split()).strip()
@@ -52,30 +68,251 @@ def auto_input(prompt):
     return input(prompt)
 
 
+def get_credentials():
+    """Retrieve Roll No and password from env, CLI args, saved file, or interactive prompt."""
+    uid = os.getenv("NSUT_UID") or os.getenv("NSUT_ROLL_NO") or ""
+    pwd = os.getenv("NSUT_PASSWORD") or os.getenv("NSUT_PWD") or ""
+
+    for i, arg in enumerate(sys.argv):
+        if arg in ("--uid", "--roll") and i + 1 < len(sys.argv):
+            uid = sys.argv[i + 1]
+        elif arg in ("--pwd", "--password") and i + 1 < len(sys.argv):
+            pwd = sys.argv[i + 1]
+
+    if not (uid and pwd) and CREDENTIALS_FILE.exists():
+        try:
+            with CREDENTIALS_FILE.open("r", encoding="utf-8") as f:
+                saved = json.load(f)
+                uid = uid or saved.get("uid", "")
+                pwd = pwd or saved.get("pwd", "")
+        except Exception:
+            pass
+
+    if not (uid and pwd) and not AUTO_MODE:
+        print("\n--- NSUT Automated Login Setup ---")
+        if not uid:
+            uid = input("Enter your IMS Roll Number / UID: ").strip()
+        if not pwd:
+            import getpass
+            pwd = getpass.getpass("Enter your IMS Password: ").strip()
+
+        if uid and pwd and not CREDENTIALS_FILE.exists():
+            save = input("Save credentials locally (.nsut_creds.json) for 1-click auto-login next time? (y/n): ").strip().lower()
+            if save in ("y", "yes"):
+                try:
+                    with CREDENTIALS_FILE.open("w", encoding="utf-8") as f:
+                        json.dump({"uid": uid, "pwd": pwd}, f, indent=2)
+                    CREDENTIALS_FILE.chmod(0o600)
+                    print("Credentials saved securely to .nsut_creds.json (git-ignored).\n")
+                except Exception as e:
+                    print(f"Could not save credentials: {e}\n")
+
+    return uid, pwd
+
+
+def is_logged_in(driver):
+    """Check if the student portal home / 'My Activities' is accessible."""
+    driver.switch_to.default_content()
+    for context in [""] + frame_names(driver):
+        try:
+            switch_to_context(driver, context)
+            links = driver.find_elements(By.TAG_NAME, "a")
+            for link in links:
+                if link.is_displayed() and clean(link.text).casefold() == "my activities":
+                    driver.switch_to.default_content()
+                    return True
+        except WebDriverException:
+            continue
+    driver.switch_to.default_content()
+    return False
+
+
 def wait_for_login(driver, timeout=120):
     """Poll the page to detect when the student has completed IMS login."""
     log("Waiting for IMS login to complete...")
     deadline = time.time() + timeout
     while time.time() < deadline:
-        try:
-            driver.switch_to.default_content()
-            for context in [""] + frame_names(driver):
-                try:
-                    if context:
-                        driver.switch_to.frame(context)
-                    links = driver.find_elements(By.TAG_NAME, "a")
-                    for link in links:
-                        if link.is_displayed() and clean(link.text).casefold() == "my activities":
-                            log("IMS login detected!")
-                            driver.switch_to.default_content()
-                            return True
-                except WebDriverException:
-                    continue
-        except WebDriverException:
-            pass
+        if is_logged_in(driver):
+            log("IMS login detected!")
+            return True
         time.sleep(2)
     log("IMS login wait timed out.")
     return False
+
+
+def find_login_form(driver):
+    """Scan all frames for the IMS login form (uid, pwd, cap, captchaimg)."""
+    driver.switch_to.default_content()
+    contexts = ["", "banner"] + [f for f in frame_names(driver) if f != "banner"]
+    for context in contexts:
+        try:
+            switch_to_context(driver, context)
+            uids = driver.find_elements(By.CSS_SELECTOR, "input[name='uid'], input#uid")
+            pwds = driver.find_elements(By.CSS_SELECTOR, "input[name='pwd'], input#pwd")
+            caps = driver.find_elements(By.CSS_SELECTOR, "input[name='cap'], input#cap")
+            imgs = driver.find_elements(By.CSS_SELECTOR, "img#captchaimg, img[src*='captcha']")
+            btns = driver.find_elements(By.CSS_SELECTOR, "input[type='submit'][name='login'], input[type='submit'][value*='Login'], input[type='submit']")
+
+            if uids and pwds and caps and imgs and btns:
+                return context, uids[0], pwds[0], caps[0], imgs[0], btns[0]
+        except WebDriverException:
+            continue
+    driver.switch_to.default_content()
+    return None
+
+
+def check_access_denied(driver):
+    """Detect if IMS rendered an 'Access Denied' screen."""
+    try:
+        driver.switch_to.default_content()
+        for context in ["", "banner"] + frame_names(driver):
+            try:
+                switch_to_context(driver, context)
+                body = driver.find_elements(By.TAG_NAME, "body")
+                if body and "access denied" in body[0].text.lower():
+                    return True
+            except WebDriverException:
+                pass
+    except Exception:
+        pass
+    driver.switch_to.default_content()
+    return False
+
+
+def get_login_error_message(driver):
+    """Extract portal error message (e.g. invalid password vs wrong captcha)."""
+    driver.switch_to.default_content()
+    for context in ["", "banner"] + frame_names(driver):
+        try:
+            switch_to_context(driver, context)
+            fonts = driver.find_elements(By.CSS_SELECTOR, "font[color*='red'], font[color='RED']")
+            for f in fonts:
+                text = clean(f.text)
+                if text and not any(skip in text.lower() for skip in ["do not share", "responsible for", "activate"]):
+                    return text
+        except WebDriverException:
+            pass
+    driver.switch_to.default_content()
+    return ""
+
+
+def reset_to_student_login(driver):
+    """Safely return to student login via homepage link to guarantee valid session/referrer."""
+    driver.switch_to.default_content()
+    try:
+        click_student_login(driver)
+        time.sleep(2)
+    except Exception as e:
+        log(f"Reset via homepage warning: {e}")
+
+
+def refresh_captcha_in_place(driver, img_el):
+    """Refresh CAPTCHA without full page reload to prevent session loss or Access Denied."""
+    try:
+        driver.execute_script(
+            "arguments[0].src = 'plum5_fw_utils.php?rty=captcha&typ=login&_ts=' + new Date().getTime();",
+            img_el,
+        )
+        time.sleep(1)
+        return True
+    except WebDriverException:
+        return False
+
+
+def try_auto_login(driver, uid, pwd, max_retries=3):
+    """Automatically solve the visual CAPTCHA with OCR and log in to NSUT IMS."""
+    if not (uid and pwd):
+        log("No Roll Number or Password available for auto-login.")
+        return False
+
+    if not HAS_DDDDOCR or get_ocr is None:
+        log("ddddocr is not installed. Install with 'pip install ddddocr' for auto-CAPTCHA.")
+        return False
+
+    ocr = get_ocr()
+
+    for attempt in range(1, max_retries + 1):
+        log(f"Auto-login attempt {attempt}/{max_retries}: solving visual CAPTCHA...")
+        time.sleep(1.5)
+
+        # Check for Access Denied screen first
+        if check_access_denied(driver):
+            log("IMS showed 'Access Denied'. Re-navigating via verified homepage link...")
+            reset_to_student_login(driver)
+
+        form = find_login_form(driver)
+        if not form:
+            time.sleep(2)
+            form = find_login_form(driver)
+
+        if not form:
+            if is_logged_in(driver):
+                log("Already logged in!")
+                return True
+            log("Login form not found. Resetting to Student Login via homepage...")
+            reset_to_student_login(driver)
+            form = find_login_form(driver)
+
+        if not form:
+            log("Could not find login form after reset.")
+            return False
+
+        context, uid_el, pwd_el, cap_el, img_el, btn_el = form
+
+        try:
+            # Capture the exact rendered CAPTCHA image element
+            img_bytes = img_el.screenshot_as_png
+            solved_cap = ocr.classification(img_bytes).strip()
+            log(f"Solved CAPTCHA: '{solved_cap}'")
+
+            # Fill in credentials and solved CAPTCHA
+            uid_el.clear()
+            uid_el.send_keys(uid)
+            pwd_el.clear()
+            pwd_el.send_keys(pwd)
+            cap_el.clear()
+            cap_el.send_keys(solved_cap)
+
+            time.sleep(0.5)
+            btn_el.click()
+
+            # Poll for successful login
+            deadline = time.time() + 8
+            succeeded = False
+            while time.time() < deadline:
+                if is_logged_in(driver):
+                    log("Automated login succeeded!")
+                    return True
+                if check_access_denied(driver):
+                    log("IMS showed 'Access Denied'. Resetting via portal homepage...")
+                    reset_to_student_login(driver)
+                    break
+                time.sleep(1)
+
+            # Check for specific portal error text
+            portal_err = get_login_error_message(driver)
+            if portal_err:
+                log(f"IMS message: {portal_err}")
+                if any(bad in portal_err.lower() for bad in ["invalid user", "invalid password", "wrong password"]):
+                    log("ERROR: Your Roll Number or Password appears incorrect.")
+                    if CREDENTIALS_FILE.exists():
+                        log(f"Tip: Update or delete {CREDENTIALS_FILE.name} if you changed your IMS password.")
+                    return False
+
+            log(f"Attempt {attempt} did not succeed (retrying with fresh CAPTCHA)...")
+            # Refresh CAPTCHA safely in place or via verified homepage
+            refreshed = False
+            form = find_login_form(driver)
+            if form:
+                refreshed = refresh_captcha_in_place(driver, form[4])
+            if not refreshed:
+                reset_to_student_login(driver)
+
+        except WebDriverException as e:
+            log(f"Notice during attempt {attempt}: {e}")
+            reset_to_student_login(driver)
+
+    return is_logged_in(driver)
 
 
 def click_student_login(driver):
@@ -653,16 +890,26 @@ def main():
             log("Opening IMS and clicking Student Login...")
             click_student_login(driver)
 
-            # Step 2: Wait for the student to log in manually.
-            if AUTO_MODE:
-                if not wait_for_login(driver):
-                    log("ERROR: Login was not completed within the time limit.")
-                    sys.exit(1)
-            else:
-                input(
-                    "\nEnter your password and solve the CAPTCHA. "
-                    "When the student homepage appears, press ENTER here..."
-                )
+            # Step 2: Attempt automatic login using ddddocr CAPTCHA solver
+            uid, pwd = get_credentials()
+            if uid and pwd and HAS_DDDDOCR and get_ocr is not None:
+                log(f"Attempting automated login for Roll No: {uid}")
+                if try_auto_login(driver, uid, pwd):
+                    session_logged_in = True
+                else:
+                    log("Automated login could not complete. Falling back to manual login...")
+
+            if not session_logged_in:
+                # Fallback: Wait for student to log in manually if credentials aren't saved
+                if AUTO_MODE:
+                    if not wait_for_login(driver):
+                        log("ERROR: Login was not completed within the time limit.")
+                        sys.exit(1)
+                else:
+                    input(
+                        "\nEnter your password and solve the CAPTCHA. "
+                        "When the student homepage appears, press ENTER here..."
+                    )
 
         time.sleep(2)
 
