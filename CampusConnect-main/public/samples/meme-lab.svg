@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-label="Lab assistant: just restart the PCB Multimeter: 0V and 4V at the same time">
+  <defs>
+    <linearGradient id="ga" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#b45309"/>
+      <stop offset="100%" stop-color="#db2777"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="700" fill="url(#ga)"/>
+  <rect width="1200" height="700" fill="rgba(255,255,255,0.06)"/>
+  <circle cx="600" cy="350" r="150" fill="rgba(255,255,255,0.12)"/>
+  <rect x="470" y="270" width="260" height="160" rx="24" fill="rgba(255,255,255,0.20)"/>
+  <rect x="505" y="305" width="190" height="24" rx="12" fill="rgba(255,255,255,0.55)"/>
+  <rect x="505" y="345" width="140" height="24" rx="12" fill="rgba(255,255,255,0.45)"/>
+  <rect x="505" y="385" width="170" height="24" rx="12" fill="rgba(255,255,255,0.35)"/>
+  <text x="600" y="90" text-anchor="middle" font-family="Impact, Segoe UI, Arial Black, sans-serif" font-size="68" font-weight="900" fill="#ffffff" stroke="#000000" stroke-width="7" paint-order="stroke">Lab assistant: just</text>
+  <text x="600" y="164" text-anchor="middle" font-family="Impact, Segoe UI, Arial Black, sans-serif" font-size="68" font-weight="900" fill="#ffffff" stroke="#000000" stroke-width="7" paint-order="stroke">restart the PCB</text>
+  <text x="600" y="560" text-anchor="middle" font-family="Impact, Segoe UI, Arial Black, sans-serif" font-size="68" font-weight="900" fill="#ffffff" stroke="#000000" stroke-width="7" paint-order="stroke">Multimeter: 0V and 4V at</text>
+  <text x="600" y="634" text-anchor="middle" font-family="Impact, Segoe UI, Arial Black, sans-serif" font-size="68" font-weight="900" fill="#ffffff" stroke="#000000" stroke-width="7" paint-order="stroke">the same time</text>
+</svg>

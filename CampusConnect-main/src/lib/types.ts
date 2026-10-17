@@ -1,0 +1,492 @@
+// ---------------------------------------------------------------------------
+// CampusConnect domain types
+// Every collection below maps 1:1 to a table in a production PostgreSQL schema.
+// In demo mode these are persisted to data/db.json through src/lib/db.ts.
+// ---------------------------------------------------------------------------
+
+export type Role = "student" | "faculty" | "organizer" | "admin";
+
+export const ROLES: Role[] = ["student", "faculty", "organizer", "admin"];
+
+export interface NotificationPrefs {
+  replies: boolean;
+  postInteractions: boolean;
+  eventReminders: boolean;
+  academic: boolean;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  passwordHash: string;
+  salt: string;
+  name: string;
+  username: string;
+  role: Role;
+  avatar: string | null;
+  department: string | null;
+  year: string | null;
+  interests: string[];
+  bio: string;
+  verified: boolean;
+  createdAt: string;
+  notificationPrefs: NotificationPrefs;
+  /** Preferred campus identifier validated against the allowlist. */
+  university?: string | null;
+}
+
+/** Safe, public projection of a User (never leaks credentials). */
+export type PublicUser = Omit<User, "passwordHash" | "salt" | "email"> & {
+  email?: string;
+};
+
+export type Session = {
+  tokenHash: string;
+  userId: string;
+  createdAt: string;
+  expiresAt: string;
+};
+
+export type MediaKind = "image" | "video" | "file";
+
+export interface Media {
+  kind: MediaKind;
+  url: string;
+  name: string;
+  size: number;
+}
+
+export type PostCategory =
+  | "Question"
+  | "Study Resources"
+  | "Campus Life"
+  | "Memes"
+  | "Announcement"
+  | "Discussion";
+
+export const POST_CATEGORIES: PostCategory[] = [
+  "Question",
+  "Study Resources",
+  "Campus Life",
+  "Memes",
+  "Announcement",
+  "Discussion",
+];
+
+export interface Community {
+  id: string;
+  name: string;
+  /** Short label shown in chips, e.g. "r/CSE". */
+  slug: string;
+  description: string;
+  /** Baseline membership count from the demo seed. */
+  members: number;
+  /** Icon key resolved in `components/posts/sidebar.tsx`. */
+  icon: string;
+  /** Tone key: brand | accent | sky | violet | rose | amber. */
+  tone: string;
+}
+
+export interface CommunityMember {
+  id: string;
+  userId: string;
+  communityId: string;
+  joinedAt: string;
+}
+
+export interface Post {
+  id: string;
+  authorId: string;
+  /** Optional community ("subreddit") this post belongs to. */
+  communityId: string | null;
+  title: string;
+  body: string;
+  category: PostCategory;
+  media: Media[];
+  createdAt: string;
+  upvotes: number;
+  downvotes: number;
+  commentCount: number;
+  removed: boolean;
+}
+
+export interface Comment {
+  id: string;
+  postId: string;
+  authorId: string;
+  parentId: string | null;
+  body: string;
+  createdAt: string;
+  upvotes: number;
+  downvotes: number;
+  removed: boolean;
+}
+
+export type VoteTarget = "post" | "comment";
+
+export interface Vote {
+  userId: string;
+  target: VoteTarget;
+  targetId: string;
+  /** 1 = upvote, -1 = downvote. One row per (user, target). */
+  value: 1 | -1;
+  createdAt: string;
+}
+
+export type ReportReason =
+  | "Spam"
+  | "Harassment or bullying"
+  | "Inappropriate content"
+  | "Fake information"
+  | "Other";
+
+export const REPORT_REASONS: ReportReason[] = [
+  "Spam",
+  "Harassment or bullying",
+  "Inappropriate content",
+  "Fake information",
+  "Other",
+];
+
+export interface Report {
+  id: string;
+  target: VoteTarget;
+  targetId: string;
+  reporterId: string;
+  reason: ReportReason;
+  details: string;
+  status: "open" | "resolved" | "dismissed";
+  createdAt: string;
+  resolution: string | null;
+  resolvedBy: string | null;
+}
+
+export type EventCategory =
+  | "Hackathon"
+  | "Technical Workshop"
+  | "Cultural Festival"
+  | "College Fest"
+  | "Sports"
+  | "Seminar"
+  | "Guest Lecture"
+  | "Club Activity"
+  | "Placement & Career"
+  | "Competition";
+
+export const EVENT_CATEGORIES: EventCategory[] = [
+  "Hackathon",
+  "Technical Workshop",
+  "Cultural Festival",
+  "College Fest",
+  "Sports",
+  "Seminar",
+  "Guest Lecture",
+  "Club Activity",
+  "Placement & Career",
+  "Competition",
+];
+
+/** High level grouping used by the event filter bar. */
+export type EventGroup = "Technical" | "Cultural" | "Sports" | "Academic" | "Career";
+
+export const EVENT_GROUP_BY_CATEGORY: Record<EventCategory, EventGroup> = {
+  Hackathon: "Technical",
+  "Technical Workshop": "Technical",
+  Competition: "Technical",
+  "Cultural Festival": "Cultural",
+  "College Fest": "Cultural",
+  "Club Activity": "Cultural",
+  Sports: "Sports",
+  Seminar: "Academic",
+  "Guest Lecture": "Academic",
+  "Placement & Career": "Career",
+};
+
+export interface CampusEvent {
+  id: string;
+  title: string;
+  description: string;
+  category: EventCategory;
+  banner: string | null;
+  start: string;
+  end: string;
+  venue: string;
+  organizer: string;
+  organizerId: string;
+  deadline: string | null;
+  seats: number | null;
+  eligibility: string;
+  instructions: string;
+  registrationUrl: string;
+  createdBy: string;
+  createdAt: string;
+  published: boolean;
+  /** Free-form related announcements shown on the detail page. */
+  related: string[];
+}
+
+export interface Registration {
+  id: string;
+  eventId: string;
+  userId: string;
+  status: "registered" | "cancelled";
+  createdAt: string;
+}
+
+export type NotificationType =
+  | "reply"
+  | "post_interaction"
+  | "event_registration"
+  | "event_reminder"
+  | "academic"
+  | "moderation"
+  | "system";
+
+export interface AppNotification {
+  id: string;
+  /** "*" broadcasts to every user (official announcements). */
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  link: string | null;
+  important: boolean;
+  createdAt: string;
+}
+
+export interface ReadMarker {
+  userId: string;
+  notificationId: string;
+}
+
+// --------------------------- Academics ------------------------------------
+
+export interface SyllabusUnit {
+  title: string;
+  topics: string[];
+}
+
+/**
+ * A file stored inside a subject's folder (one PDF per unit, plus any other
+ * handouts). Files are added by faculty/admins only; students can only view
+ * and download them.
+ */
+export interface SyllabusFile {
+  id: string;
+  /** Display name, e.g. "Unit 3 — Process Scheduling". */
+  name: string;
+  /** Served path, e.g. /api/files/<id>. */
+  url: string;
+  size?: number;
+  uploadedAt: string;
+}
+
+export interface SyllabusSubject {
+  id: string;
+  department: string;
+  semester: string;
+  subject: string;
+  code: string;
+  credits: number;
+  units: SyllabusUnit[];
+  /** Unit-wise PDFs stored in this subject's folder (faculty-managed). */
+  files?: SyllabusFile[];
+  docUrl: string | null;
+  updatedAt: string;
+  uploadedBy: string;
+  /**
+   * When set, the subject only appears in that university's section (e.g.
+   * `"nsut"`). `null`/omitted means the record is shared across universities.
+   */
+  university?: string | null;
+}
+
+export interface Scholarship {
+  id: string;
+  name: string;
+  provider: string;
+  eligibility: string;
+  amount: string;
+  deadline: string;
+  documents: string[];
+  applyUrl: string;
+  description: string;
+  /** "Official" = verified by an administrator, "Community" = student submitted. */
+  source: "Official" | "Community";
+  updatedAt: string;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  studentId: string;
+  subject: string;
+  code: string;
+  conducted: number;
+  attended: number;
+  minRequired: number;
+  updatedAt: string;
+  /** Present for student-imported records (bookmarklet/selenium). */
+  importKey?: string;
+  importedAt?: string;
+  /** "selenium" or "bookmarklet" when imported by the student; unset for faculty-managed. */
+  source?: string;
+}
+
+export type DayName = "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday";
+
+export const DAYS: DayName[] = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+export interface Slot {
+  id: string;
+  day: DayName;
+  start: string;
+  end: string;
+  subject: string;
+  faculty: string;
+  room: string;
+  kind: "class" | "lab" | "break";
+}
+
+export interface Timetable {
+  id: string;
+  department: string;
+  year: string;
+  slots: Slot[];
+  updatedAt: string;
+  uploadedBy: string;
+}
+
+export type MaterialType = "Notes" | "Previous Year Paper" | "Lab Manual" | "Assignment" | "Reference";
+
+export interface Material {
+  id: string;
+  department: string;
+  semester: string;
+  subject: string;
+  title: string;
+  type: MaterialType;
+  url: string;
+  size: number;
+  downloads: number;
+  uploadedBy: string;
+  createdAt: string;
+}
+
+/**
+ * A folder in the study-material library. Every folder groups the chapter-wise
+ * PDFs for one subject. Folders are created, edited and deleted by staff
+ * (faculty/admin) only; students can browse them read-only.
+ */
+export interface StudySubject {
+  id: string;
+  /** Display name, e.g. "Fluid Mechanics". */
+  name: string;
+  /** Short code shown on the folder, e.g. "ME-201". May be empty. */
+  code: string;
+  /** Branch/department label (an NSUT branch), or "" for an ungrouped folder. */
+  department: string;
+  /** Semester label ("Semester 3"), or "". */
+  semester: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+}
+
+/** A single PDF stored inside a study-material folder. */
+export interface StudyFile {
+  id: string;
+  /** Owning folder id. */
+  subjectId: string;
+  /** Chapter number as free text ("1", "2", "Appendix"). */
+  chapterNo: string;
+  /** Chapter name, e.g. "Introduction to Fluid Statics". */
+  chapterName: string;
+  /** Original upload file name. */
+  name: string;
+  /** Served path, e.g. /api/files/<id>. */
+  url: string;
+  size: number;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
+export interface Exam {
+  id: string;
+  name: string;
+  subject: string;
+  code: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  venue: string;
+  type: "Semester" | "Internal" | "Lab" | "Backlog";
+  instructions: string;
+  important: boolean;
+}
+
+export const DEPARTMENTS = [
+  "Bio-Technology (BT)",
+  "Computer Science and Engineering (CSE)",
+  "Computer Science and Engineering (Data Science) (CSDS)",
+  "Computer Science and Engineering (Artificial Intelligence) (CSAI)",
+  "Electrical Engineering (EE)",
+  "Electronics and Communication Engineering (ECE)",
+  "Electronics and Communication Engineering (Internet of Things) (EIOT)",
+  "Information Technology (IT)",
+  "Information Technology (Network and Information Security) (ITNS)",
+  "Instrumentation and Control Engineering (ICE)",
+  "Mathematics and Computing (MAC)",
+  "Mechanical Engineering (ME)",
+  "Computer Science and Engineering (Big Data Analytics) (CSDA)",
+  "Computer Science and Engineering (Internet of Things) (CIOT)",
+  "Electronics and Communication Engineering (Artificial Intelligence and Machine Learning) (ECAM)",
+  "Civil Engineering (CE)",
+  "Geoinformatics (GI)",
+  "Mechanical Engineering (Electric Vehicles) (MEEV)",
+];
+
+export const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
+export const SEMESTERS = ["Semester 1", "Semester 2", "Semester 3", "Semester 4", "Semester 5", "Semester 6", "Semester 7", "Semester 8"];
+
+// ----------------------------- Root DB ------------------------------------
+
+export interface ResetToken {
+  email: string;
+  token: string;
+  expiresAt: string;
+  used: boolean;
+}
+
+export interface Database {
+  version: number;
+  users: User[];
+  sessions: Session[];
+  resets: ResetToken[];
+  communities: Community[];
+  communityMembers: CommunityMember[];
+  posts: Post[];
+  comments: Comment[];
+  votes: Vote[];
+  reports: Report[];
+  events: CampusEvent[];
+  registrations: Registration[];
+  notifications: AppNotification[];
+  reads: ReadMarker[];
+  syllabus: SyllabusSubject[];
+  scholarships: Scholarship[];
+  attendance: AttendanceRecord[];
+  timetables: Timetable[];
+  materials: Material[];
+  exams: Exam[];
+  /** Study-material library: subject folders and their chapter-wise PDFs. */
+  studySubjects: StudySubject[];
+  studyFiles: StudyFile[];
+}
