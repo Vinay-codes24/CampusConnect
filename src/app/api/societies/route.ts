@@ -19,7 +19,8 @@ export const GET = handler(async (req: NextRequest) => {
     ? oneOf(rawCategory, SOCIETY_CATEGORIES, "category")
     : null;
 
-  const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
+  const rawQuery = (url.searchParams.get("q") ?? "").trim();
+  const searchTerms = tokenize(rawQuery);
   const joinedOnly = url.searchParams.get("joined") === "true";
 
   const viewer = await getCurrentUser();
@@ -37,23 +38,8 @@ export const GET = handler(async (req: NextRequest) => {
 
   if (college) list = list.filter((s) => s.collegeId === college);
   if (category) list = list.filter((s) => s.category === category);
-  if (q) {
-    list = list.filter((s) =>
-      [
-        s.name,
-        s.category,
-        s.shortDescription,
-        s.fullDescription,
-        s.mission,
-        s.tagline ?? "",
-        ...s.areasOfInterest,
-        ...s.activities,
-        ...s.achievements,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
-    );
+  if (searchTerms.length > 0) {
+    list = list.filter((s) => matchesSearch(s, searchTerms));
   }
 
   list = [...list].sort((a, b) => a.name.localeCompare(b.name));
@@ -71,3 +57,37 @@ export const GET = handler(async (req: NextRequest) => {
 
   return json({ societies, total: societies.length });
 });
+
+/**
+ * Splits free text into lowercase word tokens, keeping hyphens so compound
+ * words such as "non-technical" stay a single token. Searching "technical"
+ * therefore matches "Technical Societies" but not every "Non-Technical" one.
+ */
+function tokenize(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]+/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/**
+ * Every search term must prefix-match at least one token of the society's
+ * indexed fields (name, category, descriptions, tags and lists).
+ */
+function matchesSearch(society: Society, terms: string[]): boolean {
+  const haystack = tokenize(
+    [
+      society.name,
+      society.category,
+      society.shortDescription,
+      society.fullDescription,
+      society.mission,
+      society.tagline ?? "",
+      ...society.areasOfInterest,
+      ...society.activities,
+      ...society.achievements,
+    ].join(" "),
+  );
+  return terms.every((term) => haystack.some((token) => token.startsWith(term)));
+}

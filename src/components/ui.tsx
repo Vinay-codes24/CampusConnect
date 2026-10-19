@@ -85,6 +85,22 @@ export function SkeletonCard() {
 }
 
 /**
+ * Placeholder shaped like a SocietyTile (large tinted stage + name line + label)
+ * so the directory doesn't reflow when the real logos arrive.
+ */
+export function SkeletonTile() {
+  return (
+    <div className="society-tile" aria-hidden="true" style={{ pointerEvents: "none" }}>
+      <div className="skeleton" style={{ width: "100%", aspectRatio: "1.08 / 1", borderRadius: 20 }} />
+      <div className="society-tile__meta">
+        <div className="skeleton" style={{ width: "62%", height: 18, borderRadius: 8 }} />
+        <div className="skeleton" style={{ width: "34%", height: 10, borderRadius: 6 }} />
+      </div>
+    </div>
+  );
+}
+
+/**
  * Accessible modal dialog: closes on Escape and on backdrop click, traps focus
  * inside the dialog while open, and restores focus to the trigger afterwards.
  */

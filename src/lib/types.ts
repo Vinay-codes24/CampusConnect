@@ -424,11 +424,24 @@ export const SEMESTERS = ["Semester 1", "Semester 2", "Semester 3", "Semester 4"
 
 // --------------------------- Societies -------------------------------------
 //
-// College societies are VERIFIED records only. When an official dataset has not
-// been loaded, `db.societies` stays empty and the UI renders its empty state
-// rather than inventing clubs, members, contacts or achievements.
+// College societies are VERIFIED records only — no clubs, members, contacts,
+// achievements or links are invented. Datasets are stored separately from the
+// UI (see src/lib/societies-data.ts) and seeded into `db.societies` only when
+// the collection is still empty. The UI renders its empty state rather than
+// fabricating records when no dataset has been loaded.
+//
+// The array order is the canonical display order used by the category filter
+// chips on the Societies page.
 
 export const SOCIETY_CATEGORIES = [
+  // Groups used by the NSUT societies & clubs directory.
+  "Recreational Clubs",
+  "Technical Societies",
+  "Non-Technical Societies",
+  "Literary Clubs",
+  "Automotive Clubs",
+  "Community Service Initiatives",
+  // Generic groups kept for other colleges' societies.
   "Technical",
   "Coding",
   "Robotics",
@@ -444,6 +457,12 @@ export const SOCIETY_CATEGORIES = [
   "Design",
   "Research",
 ] as const;
+
+/** Canonical rank of a category for list/filter ordering. Unknown ones go last. */
+export function societyCategoryRank(category: string): number {
+  const index = (SOCIETY_CATEGORIES as readonly string[]).indexOf(category);
+  return index === -1 ? SOCIETY_CATEGORIES.length : index;
+}
 
 export type SocietyCategory = (typeof SOCIETY_CATEGORIES)[number];
 

@@ -2013,6 +2013,200 @@
   min-width: 160px;
   max-width: 240px;
 }
+
+/* ------------------------------ societies ------------------------------- */
+
+/* Product-showcase directory grid: exactly five hero cards per row on
+   desktop, stepping down to three on tablets, two on small tablets and one
+   on phones. minmax(0, 1fr) keeps the columns from overflowing when a long
+   society name wraps, and the grid always fills the available content width
+   so every card in a row is consistently sized. `width: 100%` is required
+   because the page wrapper (.stack) is a flex column: without it,
+   `margin-inline: auto` suppresses flex stretch and the grid collapses to
+   fit-content instead of filling the container. */
+.society-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  width: 100%;
+  margin-inline: auto;
+}
+
+/* Small tablets and large phones: two across. */
+@media (min-width: 480px) {
+  .society-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Tablets: three across. */
+@media (min-width: 768px) {
+  .society-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+}
+
+/* Desktop (≥1200px): exactly five across. The gap is tightened so the cards
+   use every available pixel of the content width instead of leaving excess
+   whitespace between them. */
+@media (min-width: 1200px) {
+  .society-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
+/* Product-showcase society tile: a large, softly tinted stage carries the
+   society's logo as the hero, with the name and an understated category
+   label beneath. The whole tile is one link, so it inherits the pointer
+   cursor and normal focus behaviour from the anchor element. Proportions are
+   kept compact so five cards sit comfortably in a desktop row while the
+   artwork stays dominant. `position: relative` lets the hover z-index lift
+   the enlarged card above its neighbours (a static grid item does not
+   reliably honour z-index in every engine). */
+.society-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  padding: 12px 12px 16px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid var(--color-ink-200);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+  color: inherit;
+  text-decoration: none;
+  /* Neutral start state so the hover lift/scale animates smoothly in both
+     directions (entering and leaving). */
+  transform: translateY(0) scale(1);
+  transform-origin: center;
+  /* Promote the card to its own layer: the lift then composites cleanly and
+     is never cut off by the grid's own compositing. */
+  will-change: transform;
+  transition:
+    transform 250ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 250ms ease,
+    border-color 250ms ease;
+}
+
+/* The hero stage. A muted, category-derived tint sits behind the artwork so
+   the logo reads as a deliberate product shot rather than a small icon
+   floating in white space. The artwork layer is inset to ~74% of the stage
+   (see .society-logo--fill), which keeps the logo prominent while leaving
+   the generous whitespace the showcase style calls for. */
+.society-tile__stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1.08 / 1;
+  flex: none;
+  border-radius: 20px;
+  background: var(--stage, #eef2fd);
+  overflow: hidden;
+  transition: background-color 250ms ease;
+}
+
+.society-tile__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding-inline: 6px;
+}
+
+.society-tile__name {
+  margin: 0;
+  font-size: clamp(16px, 1.9vw, 22px);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  /* Long names wrap instead of stretching the tile. */
+  overflow-wrap: anywhere;
+}
+
+.society-tile__category {
+  font-size: clamp(10px, 0.95vw, 13px);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tone, var(--color-ink-400));
+}
+
+/* Hover lift — applied only on devices with a real hover pointer, so touch
+   users never get a stuck-raised card. translateY(-10px) moves the whole card
+   (logo and name included) up, and scale(1.03) adds the subtle enlarge. The
+   transform never reflows the grid, so neighbouring cards do not shift; the
+   z-index lifts the raised card above its neighbours, and no ancestor sets
+   overflow:hidden, so it is never clipped. */
+@media (hover: hover) and (pointer: fine) {
+  .society-tile:hover {
+    z-index: 10;
+    transform: translateY(-10px) scale(1.03);
+    box-shadow: var(--shadow-pop);
+    border-color: var(--color-brand-400);
+  }
+
+  .society-tile:hover .society-tile__stage {
+    background: var(--stage-hover, var(--stage, #eef2fd));
+  }
+}
+
+.society-tile:focus-visible {
+  border-color: var(--color-brand-400);
+  box-shadow: var(--shadow-card), 0 0 0 3px var(--color-brand-100);
+}
+
+/* Shared logo wrapper rendered inside a tile (or the detail hero) by
+   SocietyLogo — keeps artwork centred and never cropped. */
+.society-logo {
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.society-logo img {
+  display: block;
+  /* Never crop or distort a logo; transparent PNGs stay transparent. */
+  object-fit: contain;
+}
+
+/* Showcase variant: the artwork layer fills the stage's inner box (inset
+   from the edges), so a society's logo dominates the card instead of sitting
+   in a small square. Absolutely positioned so the box has a determinate size
+   on BOTH axes. `display: block` is essential: the shared .society-logo rule
+   sets display:grid/place-items:center, which would make the img's
+   height:100% resolve against a content-sized (indefinite) grid row — the
+   image would fall back to its intrinsic ratio and tall portraits (e.g.
+   Crescendo, 335x597) would overflow and get clipped by the stage. Block
+   layout resolves height:100% against this definite box, so
+   object-fit:contain letterboxes any aspect ratio without cropping. */
+.society-logo--fill {
+  position: absolute;
+  inset: 13%;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.society-logo--fill img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Societies without a supplied logo fall back to their icon, scaled to the
+   stage (never a tiny glyph in a large empty panel) with a lighter stroke so
+   it stays elegant at hero size. Centered with auto margins because the
+   fill span is block layout, not grid. */
+.society-logo--fill svg {
+  display: block;
+  width: 58%;
+  height: 58%;
+  margin: auto;
+  stroke-width: 1.25;
+}
 } /* end @layer components */
 
 @media (prefers-reduced-motion: reduce) {
@@ -2033,5 +2227,13 @@
     animation: none;
     transform: none;
     opacity: 1;
+  }
+
+  /* Society tiles: keep colour/border-only hover feedback, drop the card
+     scale and the logo zoom for anyone who asked for reduced motion. The
+     stage tint change is colour-only, so it stays. */
+  .society-tile:hover,
+  .society-tile:hover .society-logo--fill {
+    transform: none;
   }
 }

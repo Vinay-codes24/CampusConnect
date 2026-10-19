@@ -13,7 +13,6 @@ import type {
   Scholarship,
   Session,
   Slot,
-  Society,
   SocietyMember,
   SyllabusSubject,
   Timetable,
@@ -21,6 +20,7 @@ import type {
   Vote,
 } from "./types";
 import { hashPassword } from "./password";
+import { buildNsutSocieties } from "./societies-data";
 
 /**
  * Demo dataset.
@@ -1020,7 +1020,7 @@ export function buildSeedData(): Database {
     reports,
     events,
     registrations,
-    societies: [] as Society[],
+    societies: buildNsutSocieties(),
     societyMembers: [] as SocietyMember[],
     notifications,
     reads: [

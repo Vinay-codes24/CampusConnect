@@ -93,6 +93,41 @@ function ensureCollections(db: Database): boolean {
     db.communities = seed.communities;
     patched = true;
   }
+
+  // Societies are merged by id. A database written before the society
+  // directory existed gets the verified seed directory, and any seed record
+  // missing from an existing database is appended. Existing records are never
+  // replaced or removed: only empty optional fields (logo, icon) are backfilled
+  // from the seed, so memberships and any user edits stay intact.
+  if (db.societies.length === 0 && seed.societies.length > 0) {
+    db.societies = seed.societies;
+    patched = true;
+  } else if (db.societies.length > 0 && seed.societies.length > 0) {
+    const byId = new Map(db.societies.map((s) => [s.id, s]));
+    for (const seeded of seed.societies) {
+      const existing = byId.get(seeded.id);
+      if (!existing) {
+        db.societies.push(seeded);
+        byId.set(seeded.id, seeded);
+        patched = true;
+        continue;
+      }
+      // Backfill artwork that records seeded before logos existed predate.
+      let filled = false;
+      if (!existing.logo && seeded.logo) {
+        existing.logo = seeded.logo;
+        filled = true;
+      }
+      if (!existing.icon && seeded.icon) {
+        existing.icon = seeded.icon;
+        filled = true;
+      }
+      if (filled) {
+        existing.updatedAt = new Date().toISOString();
+        patched = true;
+      }
+    }
+  }
   return patched;
 }
 

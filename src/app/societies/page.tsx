@@ -11,9 +11,10 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/lib/client";
-import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui";
+import { EmptyState, ErrorState, SkeletonTile } from "@/components/ui";
 import { findUniversity } from "@/lib/universities";
-import type { Society } from "@/lib/types";
+import { societyCategoryRank, type Society } from "@/lib/types";
+import { SocietyTile } from "@/components/societies/society-tile";
 
 const UNIVERSITY_IDS = ["dtu", "igdtuw", "nsut", "iiitd"] as const;
 type CollegeFilter = (typeof UNIVERSITY_IDS)[number] | "all";
@@ -47,16 +48,30 @@ function SocietiesBrowser() {
 
   const [societies, setSocieties] = useState<SocietyEntry[]>([]);
   const [total, setTotal] = useState(0);
-  const [allCount, setAllCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
 
-  // Count for the header/total stays aligned with the real dataset.
+  // The complete catalogue is fetched once: it drives the category chips so
+  // they stay stable while filtering (and avoids re-fetching the whole list on
+  // every college/category/search change).
   useEffect(() => {
-    api<{ societies: SocietyEntry[]; total: number }>("/api/societies")
-      .then((data) => setAllCount(data.total))
-      .catch(() => setAllCount(0));
+    const controller = new AbortController();
+    api<{ societies: SocietyEntry[] }>("/api/societies", { signal: controller.signal })
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        const unique = Array.from(new Set(data.societies.map((s) => s.category)));
+        setCategories(
+          unique.sort(
+            (a, b) => societyCategoryRank(a) - societyCategoryRank(b) || a.localeCompare(b),
+          ),
+        );
+      })
+      .catch(() => {
+        // Chips simply stay hidden if the catalogue cannot load; search and
+        // the college selector keep working from the filtered request below.
+      });
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -120,14 +135,6 @@ function SocietiesBrowser() {
         if (controller.signal.aborted) return;
         setSocieties(data.societies);
         setTotal(data.total);
-        // Categories follow the complete verified dataset, not the current filter.
-        api<{ societies: SocietyEntry[] }>("/api/societies")
-          .then((allData) => {
-            setCategories(Array.from(new Set(allData.societies.map((s) => s.category))).sort());
-          })
-          .catch(() => {
-            setCategories(Array.from(new Set(data.societies.map((s) => s.category))).sort());
-          });
       })
       .catch((err: Error) => {
         if (controller.signal.aborted || err.name === "AbortError") return;
@@ -160,7 +167,8 @@ function SocietiesBrowser() {
     ? "Adjust the college, category or search, or reset the filters."
     : "No verified society records have been added yet. Societies appear here once their details have been verified.";
 
-  const displayCount = joined ? total : allCount ?? 0;
+  // The header count always mirrors the filtered result set the API returned.
+  const displayCount = total;
 
   const buttonList: { id: Selection; label: string; icon: React.ElementType; vars: React.CSSProperties }[] = [
     {
@@ -294,6 +302,14 @@ function SocietiesBrowser() {
 
         {categories.length > 0 ? (
           <div className="chip-row" role="group" aria-label="Filter societies by category">
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={!category}
+              onClick={() => router.replace(`/societies${buildUrl({ category: "" })}`, { scroll: false })}
+            >
+              All Societies
+            </button>
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -324,9 +340,9 @@ function SocietiesBrowser() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
+        <div className="society-grid" aria-hidden="true">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <SkeletonTile key={i} />
           ))}
         </div>
       ) : error ? (
@@ -353,60 +369,10 @@ function SocietiesBrowser() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" style={{ alignItems: "stretch" }}>
-          {societies.map((society) => {
-            const university = findUniversity(society.collegeId);
-            return (
-              <article
-                key={society.id}
-                className="panel card-pad"
-                style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 260 }}
-              >
-                <div className="row" style={{ justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
-                  <div
-                    aria-hidden="true"
-                    style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 16,
-                      display: "grid",
-                      placeItems: "center",
-                      color: "#fff",
-                      background: `linear-gradient(135deg, ${COLLEGE_ACCENTS[society.collegeId]?.color ?? "#7c3aed"}, ${
-                        COLLEGE_ACCENTS[society.collegeId]?.color ?? "#7c3aed"
-                      }aa)`,
-                      fontWeight: 800,
-                      fontSize: 17,
-                      flex: "none",
-                      boxShadow: "0 8px 18px -8px rgba(15,23,42,0.25)",
-                    }}
-                  >
-                    {(society.name || "?").trim().slice(0, 2).toUpperCase()}
-                  </div>
-                  <span className="tag" style={{ alignSelf: "flex-start" }}>
-                    {university?.shortName ?? society.collegeId.toUpperCase()}
-                  </span>
-                </div>
-
-                <div className="stack" style={{ gap: 6, flex: 1 }}>
-                  <h2 style={{ fontSize: 18, lineHeight: 1.25 }}>{society.name}</h2>
-                  <span className="tag" style={{ alignSelf: "flex-start" }}>
-                    {society.category}
-                  </span>
-                  <p className="text-sm" style={{ margin: 0, color: "var(--color-ink-600)" }}>
-                    {society.shortDescription || "A verified society record with no summary yet."}
-                  </p>
-                </div>
-
-                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <a href={`/societies/${society.id}`} className="btn btn-primary btn-sm">
-                    View Details
-                  </a>
-                  {society.joined ? <span className="tag">Joined</span> : null}
-                </div>
-              </article>
-            );
-          })}
+        <div className="society-grid">
+          {societies.map((society) => (
+            <SocietyTile key={society.id} society={society} />
+          ))}
         </div>
       )}
     </div>
@@ -424,9 +390,9 @@ export default function SocietiesPage() {
         <div className="container stack" aria-hidden="true">
           <div className="skeleton" style={{ height: 34, width: 240 }} />
           <div className="skeleton" style={{ height: 44, maxWidth: 460 }} />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} />
+          <div className="society-grid">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <SkeletonTile key={i} />
             ))}
           </div>
         </div>

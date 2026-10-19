@@ -17,6 +17,8 @@ import { api } from "@/lib/client";
 import { useApp } from "@/components/providers";
 import { EmptyState, ErrorState } from "@/components/ui";
 import { findUniversity } from "@/lib/universities";
+import { SocietyIcon } from "@/components/societies/society-icon";
+import { SocietyLogo } from "@/components/societies/society-logo";
 import type { Society } from "@/lib/types";
 
 export default function SocietyDetailPage() {
@@ -152,9 +154,27 @@ function SocietyDetail({ id }: { id: string }) {
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 46, fontWeight: 800, lineHeight: 1 }}>
               {society.logo ? (
-                // verified path only
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={society.logo} alt="" style={{ width: 92, height: 92, objectFit: "cover", borderRadius: 22, margin: "0 auto" }} />
+                /* White tile keeps the real logo readable over the gradient and
+                   never crops it (object-fit: contain, handled in CSS). */
+                <span
+                  style={{
+                    display: "grid",
+                    placeItems: "center",
+                    width: 104,
+                    height: 104,
+                    margin: "0 auto",
+                    padding: 10,
+                    borderRadius: 24,
+                    background: "#fff",
+                    boxShadow: "0 12px 28px -12px rgba(15, 23, 42, 0.55)",
+                  }}
+                >
+                  <SocietyLogo src={society.logo} icon={society.icon} size={84} />
+                </span>
+              ) : society.icon ? (
+                <span style={{ display: "inline-grid", placeItems: "center" }}>
+                  <SocietyIcon icon={society.icon} size={64} />
+                </span>
               ) : (
                 <span>{(society.name || "?").trim().slice(0, 2).toUpperCase()}</span>
               )}
