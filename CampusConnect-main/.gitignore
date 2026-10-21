@@ -1,9 +1,0 @@
-node_modules
-.next
-out
-data/db.json
-data/uploads
-public/uploads
-*.log
-.DS_Store
-next-env.d.ts
