@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   ClipboardList,
   FilePlus2,
+  FileText,
+  FolderOpen,
   Paperclip,
   Plus,
   RefreshCw,
@@ -23,6 +25,7 @@ import {
   type Exam,
   type Material,
   type MaterialType,
+  type SyllabusFile,
   type SyllabusSubject,
 } from "@/lib/types";
 import { EmptyState, ErrorState, SkeletonCard } from "@/components/ui";
@@ -188,21 +191,25 @@ export function RecordsTab() {
                 </li>
               ) : (
                 (data?.syllabus ?? []).map((item) => (
-                  <li key={item.id} className="card card-pad row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                    <span style={{ minWidth: 0, flex: 1 }}>
-                      <strong style={{ display: "block", fontSize: 14.5 }}>
-                        {item.subject} <span className="tag tag-muted">{item.code}</span>
-                      </strong>
-                      <span className="text-sm muted">
-                        {item.department} · {item.semester} · {item.credits} credits · {item.units.length} units
+                  <li key={item.id} className="card card-pad stack" style={{ gap: 10 }}>
+                    <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ minWidth: 0, flex: 1 }}>
+                        <strong style={{ display: "block", fontSize: 14.5 }}>
+                          {item.subject} <span className="tag tag-muted">{item.code}</span>
+                        </strong>
+                        <span className="text-sm muted">
+                          {item.department} · {item.semester} · {item.credits} credits · {(item.files?.length ?? 0)} file
+                          {(item.files?.length ?? 0) === 1 ? "" : "s"}
+                        </span>
                       </span>
-                    </span>
-                    <DeleteButton
-                      busy={deletingId === item.id}
-                      disabled={!!deletingId}
-                      label={`syllabus for ${item.subject}`}
-                      onClick={() => void removeRecord("syllabus", item.id, `Syllabus for ${item.subject}`)}
-                    />
+                      <DeleteButton
+                        busy={deletingId === item.id}
+                        disabled={!!deletingId}
+                        label={`syllabus for ${item.subject}`}
+                        onClick={() => void removeRecord("syllabus", item.id, `Syllabus for ${item.subject}`)}
+                      />
+                    </div>
+                    <SubjectFolderEditor item={item} onChanged={load} />
                   </li>
                 ))
               )}
@@ -476,6 +483,144 @@ function SyllabusForm({ submit }: { submit: SubmitFn }) {
         </PendingButton>
       </div>
     </form>
+  );
+}
+
+/* ---------------------------- subject folder ---------------------------- */
+
+function SubjectFolderEditor({ item, onChanged }: { item: SyllabusSubject; onChanged: () => Promise<void> | void }) {
+  const { toast } = useApp();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [label, setLabel] = useState("");
+  const [error, setError] = useState("");
+  const files = item.files ?? [];
+
+  async function save(next: SyllabusFile[]) {
+    setBusy(true);
+    setError("");
+    try {
+      await api("/api/admin/records", { method: "PATCH", json: { kind: "syllabus", id: item.id, files: next } });
+      await onChanged();
+      toast(`Folder updated — ${item.subject}`, "success");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function pick(next: File | undefined) {
+    setError("");
+    if (!next) return;
+    if (next.size > 10 * 1024 * 1024) {
+      setError("Unit PDFs must be 10 MB or smaller.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", next);
+      form.append("kind", "document");
+      const up = await api<{ url: string; size: number; name: string }>("/api/upload", { method: "POST", body: form });
+      const name = (label.trim() || next.name.replace(/\.[^.]+$/, "")).slice(0, 140);
+      await save([
+        ...files,
+        {
+          id: `f-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name,
+          url: up.url,
+          size: up.size,
+          uploadedAt: new Date().toISOString(),
+        },
+      ]);
+      setLabel("");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        style={{ alignSelf: "flex-start" }}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <FolderOpen size={14} /> {open ? "Close folder" : `Manage unit PDFs (${files.length})`}
+      </button>
+
+      {open ? (
+        <div className="stack" style={{ gap: 10 }}>
+          {error ? (
+            <p className="text-sm" style={{ color: "#b91c1c" }}>
+              {error}
+            </p>
+          ) : null}
+
+          {files.length === 0 ? (
+            <p className="text-sm muted">This folder is empty. Upload the first unit PDF below.</p>
+          ) : (
+            <ul className="stack" style={{ listStyle: "none", padding: 0, margin: 0, gap: 6 }}>
+              {files.map((file) => (
+                <li key={file.id} className="row" style={{ justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                  <a className="row" href={file.url} target="_blank" rel="noreferrer" style={{ gap: 6, minWidth: 0, flex: 1 }}>
+                    <FileText size={14} aria-hidden="true" />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
+                    <span className="text-sm muted">{file.size ? formatBytes(file.size) : ""}</span>
+                  </a>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={busy || uploading}
+                    aria-label={`Remove ${file.name}`}
+                    onClick={() => void save(files.filter((f) => f.id !== file.id))}
+                  >
+                    <Trash2 size={13} /> Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="field">
+            <label className="label" htmlFor={`file-label-${item.id}`}>
+              Unit name (optional)
+            </label>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <input
+                id={`file-label-${item.id}`}
+                className="input"
+                style={{ maxWidth: 260 }}
+                placeholder="Unit 3 — Process scheduling"
+                value={label}
+                maxLength={140}
+                onChange={(e) => setLabel(e.target.value)}
+                disabled={uploading || busy}
+              />
+              <label className="btn btn-soft btn-sm" style={{ cursor: "pointer" }}>
+                <Upload size={14} /> {uploading ? "Uploading…" : "Upload PDF"}
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf,.txt"
+                  hidden
+                  disabled={uploading || busy}
+                  onChange={(e) => {
+                    void pick(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

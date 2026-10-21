@@ -305,6 +305,21 @@ export interface SyllabusUnit {
   topics: string[];
 }
 
+/**
+ * A file stored inside a subject's folder (one PDF per unit, plus any other
+ * handouts). Files are added by faculty/admins only; students can only view
+ * and download them.
+ */
+export interface SyllabusFile {
+  id: string;
+  /** Display name, e.g. "Unit 3 — Process Scheduling". */
+  name: string;
+  /** Served path, e.g. /api/files/<id>. */
+  url: string;
+  size?: number;
+  uploadedAt: string;
+}
+
 export interface SyllabusSubject {
   id: string;
   department: string;
@@ -313,9 +328,16 @@ export interface SyllabusSubject {
   code: string;
   credits: number;
   units: SyllabusUnit[];
+  /** Unit-wise PDFs stored in this subject's folder (faculty-managed). */
+  files?: SyllabusFile[];
   docUrl: string | null;
   updatedAt: string;
   uploadedBy: string;
+  /**
+   * When set, the subject only appears in that university's section (e.g.
+   * `"nsut"`). `null`/omitted means the record is shared across universities.
+   */
+  university?: string | null;
 }
 
 export interface Scholarship {
@@ -396,6 +418,45 @@ export interface Material {
   createdAt: string;
 }
 
+/**
+ * A folder in the study-material library. Every folder groups the chapter-wise
+ * PDFs for one subject. Folders are created, edited and deleted by staff
+ * (faculty/admin) only; students can browse them read-only.
+ */
+export interface StudySubject {
+  id: string;
+  /** Display name, e.g. "Fluid Mechanics". */
+  name: string;
+  /** Short code shown on the folder, e.g. "ME-201". May be empty. */
+  code: string;
+  /** Branch/department label (an NSUT branch), or "" for an ungrouped folder. */
+  department: string;
+  /** Semester label ("Semester 3"), or "". */
+  semester: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+}
+
+/** A single PDF stored inside a study-material folder. */
+export interface StudyFile {
+  id: string;
+  /** Owning folder id. */
+  subjectId: string;
+  /** Chapter number as free text ("1", "2", "Appendix"). */
+  chapterNo: string;
+  /** Chapter name, e.g. "Introduction to Fluid Statics". */
+  chapterName: string;
+  /** Original upload file name. */
+  name: string;
+  /** Served path, e.g. /api/files/<id>. */
+  url: string;
+  size: number;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
 export interface Exam {
   id: string;
   name: string;
@@ -411,12 +472,24 @@ export interface Exam {
 }
 
 export const DEPARTMENTS = [
-  "Computer Science & Engineering",
-  "Electronics & Communication",
-  "Mechanical Engineering",
-  "Civil Engineering",
-  "Information Technology",
-  "Business Administration",
+  "Bio-Technology (BT)",
+  "Computer Science and Engineering (CSE)",
+  "Computer Science and Engineering (Data Science) (CSDS)",
+  "Computer Science and Engineering (Artificial Intelligence) (CSAI)",
+  "Electrical Engineering (EE)",
+  "Electronics and Communication Engineering (ECE)",
+  "Electronics and Communication Engineering (Internet of Things) (EIOT)",
+  "Information Technology (IT)",
+  "Information Technology (Network and Information Security) (ITNS)",
+  "Instrumentation and Control Engineering (ICE)",
+  "Mathematics and Computing (MAC)",
+  "Mechanical Engineering (ME)",
+  "Computer Science and Engineering (Big Data Analytics) (CSDA)",
+  "Computer Science and Engineering (Internet of Things) (CIOT)",
+  "Electronics and Communication Engineering (Artificial Intelligence and Machine Learning) (ECAM)",
+  "Civil Engineering (CE)",
+  "Geoinformatics (GI)",
+  "Mechanical Engineering (Electric Vehicles) (MEEV)",
 ];
 
 export const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
@@ -532,4 +605,7 @@ export interface Database {
   timetables: Timetable[];
   materials: Material[];
   exams: Exam[];
+  /** Study-material library: subject folders and their chapter-wise PDFs. */
+  studySubjects: StudySubject[];
+  studyFiles: StudyFile[];
 }

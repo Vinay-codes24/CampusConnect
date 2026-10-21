@@ -46,7 +46,7 @@ export const GET = handler(async (req: NextRequest) => {
 
   db.syllabus
     .filter((s) => `${s.subject} ${s.code} ${s.department}`.toLowerCase().includes(q))
-    .forEach((s) => results.push({ type: "Subject", title: s.subject, subtitle: `${s.code} · ${s.department}`, href: "/academics/syllabus" }));
+    .forEach((s) => results.push({ type: "Subject", title: s.subject, subtitle: `${s.code} · ${s.department}`, href: "/academics/study-materials" }));
 
   db.notifications
     .filter((n) => (n.userId === "*" || n.userId === viewer?.id) && `${n.title} ${n.body}`.toLowerCase().includes(q))

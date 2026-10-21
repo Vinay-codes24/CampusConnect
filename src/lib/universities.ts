@@ -1,3 +1,5 @@
+import { DEPARTMENTS } from "@/lib/types";
+
 /** Stable identifiers for supported universities. Never trust raw browser input. */
 export type UniversityId = "dtu" | "igdtuw" | "nsut" | "iiitd";
 
@@ -79,6 +81,17 @@ export function coerceUniversityId(value: unknown): UniversityId | null {
 
 export function isValidUniversityId(value: unknown): value is UniversityId {
   return coerceUniversityId(value) !== null;
+}
+
+/**
+ * Branch (department) list for a university's section.
+ *
+ * Only NSUT has a verified branch list configured today. Every other university
+ * returns an empty list, so its section shows no branches rather than borrowing
+ * another campus's departments.
+ */
+export function departmentsForUniversity(id: string | null | undefined): string[] {
+  return coerceUniversityId(id) === "nsut" ? DEPARTMENTS : [];
 }
 
 export const UNIVERSITY_STORAGE_KEY = "campusconnect:university";

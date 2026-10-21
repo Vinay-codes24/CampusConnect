@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ClipboardList,
   Flag,
+  FolderOpen,
   LayoutDashboard,
   Lock,
   Megaphone,
@@ -22,6 +23,7 @@ import { Overview } from "@/components/admin/overview";
 import { ReportsTab } from "@/components/admin/reports";
 import { AnnouncementTab } from "@/components/admin/announcement";
 import { RecordsTab } from "@/components/admin/records";
+import { LibraryTab } from "@/components/admin/library";
 import { UsersTab } from "@/components/admin/users";
 import { EventsTab } from "@/components/admin/events";
 
@@ -33,6 +35,7 @@ const TABS: Array<{ key: string; label: string; icon: LucideIcon; roles: Role[] 
   { key: "reports", label: "Reports", icon: Flag, roles: MODERATORS },
   { key: "announcement", label: "Announcement", icon: Megaphone, roles: MODERATORS },
   { key: "records", label: "Academic records", icon: ClipboardList, roles: MODERATORS },
+  { key: "library", label: "Study library", icon: FolderOpen, roles: MODERATORS },
   { key: "users", label: "Users & roles", icon: Users, roles: ["admin"] },
   { key: "events", label: "Events", icon: CalendarDays, roles: STAFF },
 ];
@@ -146,6 +149,7 @@ function AdminInner() {
         {activeKey === "reports" ? <ReportsTab /> : null}
         {activeKey === "announcement" ? <AnnouncementTab /> : null}
         {activeKey === "records" ? <RecordsTab /> : null}
+        {activeKey === "library" ? <LibraryTab /> : null}
         {activeKey === "users" ? <UsersTab viewerId={user.id} /> : null}
         {activeKey === "events" ? <EventsTab /> : null}
       </div>

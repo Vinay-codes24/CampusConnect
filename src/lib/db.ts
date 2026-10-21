@@ -77,6 +77,8 @@ function ensureCollections(db: Database): boolean {
     "exams",
     "syllabus",
     "scholarships",
+    "studySubjects",
+    "studyFiles",
   ];
 
   for (const key of required) {
@@ -126,6 +128,28 @@ function ensureCollections(db: Database): boolean {
         existing.updatedAt = new Date().toISOString();
         patched = true;
       }
+    }
+  }
+
+  // Study-material library migrations (from the merged PR): bring an older
+  // database up to date with the NSUT branch-wise scheme of courses and the
+  // matching study-material folders. Both merge idempotently by id.
+  const nsutSyllabus = seed.syllabus.filter((s) => s.university === "nsut");
+  if (nsutSyllabus.length > 0) {
+    const have = new Set(db.syllabus.map((s) => s.id));
+    const missing = nsutSyllabus.filter((s) => !have.has(s.id));
+    if (missing.length > 0) {
+      db.syllabus.push(...missing);
+      patched = true;
+    }
+  }
+
+  if (seed.studySubjects.length > 0) {
+    const have = new Set(db.studySubjects.map((s) => s.id));
+    const missing = seed.studySubjects.filter((s) => !have.has(s.id));
+    if (missing.length > 0) {
+      db.studySubjects.push(...missing);
+      patched = true;
     }
   }
   return patched;

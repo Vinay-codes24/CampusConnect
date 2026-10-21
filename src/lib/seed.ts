@@ -18,9 +18,12 @@ import type {
   Timetable,
   User,
   Vote,
+  StudySubject,
 } from "./types";
 import { hashPassword } from "./password";
 import { buildNsutSocieties } from "./societies-data";
+import { NSUT_SYLLABUS } from "./nsut-syllabus";
+
 
 /**
  * Demo dataset.
@@ -788,7 +791,24 @@ export function buildSeedData(): Database {
       { title: "Unit IV — Java Ecosystem", topics: ["File I/O", "Multithreading basics", "Lambdas and streams"] },
       { title: "Unit V — Design", topics: ["SOLID principles", "Design patterns — singleton, factory, observer"] },
     ], "u-meera"),
+    // NSUT branch-wise scheme of courses (Semesters 1-8) from the official PDFs.
+    ...NSUT_SYLLABUS,
   ];
+
+  // Study-material library folders mirror the NSUT scheme (names/codes only —
+  // never the scheme PDFs). Every folder starts empty; staff upload the
+  // chapter-wise PDFs from the admin dashboard.
+  const studySubjects: StudySubject[] = NSUT_SYLLABUS.map((s) => ({
+    id: `sf-${s.id}`,
+    name: s.subject,
+    code: s.code,
+    department: s.department,
+    semester: s.semester,
+    description: "",
+    createdAt: s.updatedAt,
+    updatedAt: s.updatedAt,
+    createdBy: "u-admin",
+  }));
 
   const scholarships: Scholarship[] = [
     {
@@ -1034,6 +1054,9 @@ export function buildSeedData(): Database {
     timetables,
     materials,
     exams,
+    // Study-material folders mirror the NSUT scheme; PDFs are added by staff.
+    studySubjects,
+    studyFiles: [],
   };
 }
 

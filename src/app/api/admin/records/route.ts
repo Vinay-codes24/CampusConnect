@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { handler, json, readBody, ApiError } from "@/lib/api";
-import { mutate, now, uid } from "@/lib/db";
+import { getDB, mutate, now, uid } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { DEPARTMENTS, SEMESTERS, type AppNotification, type Database } from "@/lib/types";
+import { DEPARTMENTS, SEMESTERS, type AppNotification, type Database, type SyllabusFile } from "@/lib/types";
 import { isoDate, oneOf, optional, str, strings } from "@/lib/validation";
 
 const KINDS = ["announcement", "syllabus", "material", "exam", "attendance", "timetable", "scholarship"] as const;
@@ -54,13 +54,14 @@ export const POST = handler(async (req: NextRequest) => {
               }))
             : [],
           docUrl: typeof data.docUrl === "string" ? data.docUrl : null,
+          files: normalizeFiles(data.files),
           updatedAt: now(),
           uploadedBy: me.id,
         };
         db.syllabus.push(record);
-        broadcast(db, `Syllabus updated — ${record.subject}`, `${record.department} · ${record.semester} · ${record.code}`, "/academics/syllabus", false, me.id);
+        broadcast(db, `Syllabus updated — ${record.subject}`, `${record.department} · ${record.semester} · ${record.code}`, "/academics/study-materials", false, me.id);
         summary = `Syllabus published for ${record.subject}.`;
-        link = "/academics/syllabus";
+        link = "/academics/study-materials";
         break;
       }
       case "material": {
@@ -192,6 +193,32 @@ export const POST = handler(async (req: NextRequest) => {
   return json({ ok: true, summary, link }, 201);
 });
 
+/**
+ * PATCH /api/admin/records — update a subject's unit files (the "folder").
+ * Body: { kind: "syllabus", id, files: [{ name, url, size }] }.
+ * Faculty/admins only; students can never mutate a folder.
+ */
+export const PATCH = handler(async (req: NextRequest) => {
+  const me = await requireRole("faculty", "admin");
+  const body = await readBody(req);
+  const kind = oneOf(body.kind, KINDS, "record type");
+  if (kind !== "syllabus") {
+    throw new ApiError(400, "Only syllabus folders can be updated here.");
+  }
+  const id = str(body.id, { field: "Subject" });
+  const files = normalizeFiles(body.files);
+
+  mutate((db) => {
+    const record = db.syllabus.find((s) => s.id === id);
+    if (!record) throw new ApiError(404, "That subject does not exist.");
+    record.files = files;
+    record.updatedAt = now();
+    record.uploadedBy = me.id;
+  });
+
+  return json({ ok: true, summary: `${files.length} file${files.length === 1 ? "" : "s"} saved.`, link: "/academics/study-materials" });
+});
+
 /** DELETE /api/admin/records { kind, id } */
 export const DELETE = handler(async (req: NextRequest) => {
   await requireRole("faculty", "admin");
@@ -224,8 +251,22 @@ export const DELETE = handler(async (req: NextRequest) => {
   return json({ ok: true });
 });
 
-function broadcast(db: Database, title: string, body: string, link: string, important: boolean, authorId: string) {
-  db.users.forEach((u) => {
+function normalizeFiles(input: unknown): SyllabusFile[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((f): f is Record<string, unknown> => !!f && typeof f === "object")
+    .map((f) => ({
+      id: typeof f.id === "string" && f.id ? f.id : uid(),
+      name: String(f.name ?? "Unit file").slice(0, 140),
+      url: typeof f.url === "string" && f.url.startsWith("/") ? f.url : "",
+      size: Number(f.size ?? 0) || 0,
+      uploadedAt: typeof f.uploadedAt === "string" ? f.uploadedAt : now(),
+    }))
+    .filter((f) => f.url)
+    .slice(0, 40);
+}
+
+function broadcast(db: Database, title: string, body: string, link: string, important: boolean, authorId: string) {  db.users.forEach((u) => {
     if (u.id === authorId) return;
     if (!u.notificationPrefs.academic && !important) return;
     push(db, u.id, title, body, link, important, u.notificationPrefs.academic || important);

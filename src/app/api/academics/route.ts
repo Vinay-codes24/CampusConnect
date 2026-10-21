@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { handler, json } from "@/lib/api";
 import { getDB } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { DEPARTMENTS } from "@/lib/types";
 
 /**
  * GET /api/academics — everything the signed-in student's dashboard needs.
@@ -17,7 +18,7 @@ export const GET = handler(async (_req: NextRequest) => {
   return json({
     viewer: {
       id: me.id,
-      department: me.department ?? "Computer Science & Engineering",
+      department: me.department ?? DEPARTMENTS[0],
       year: me.year ?? "3rd Year",
       role: me.role,
     },

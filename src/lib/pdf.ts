@@ -20,7 +20,7 @@ function escapeText(input: string): string {
     .replace(/[^\x20-\x7E]/g, "?");
 }
 
-export function buildPdf(_title: string, blocks: Block[]): Buffer {
+export function buildPdf(title: string, blocks: Block[]): Buffer {
   let stream = "BT\n";
   let y = PAGE_HEIGHT - 70;
 

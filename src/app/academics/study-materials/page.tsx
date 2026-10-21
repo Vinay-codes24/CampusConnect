@@ -1,160 +1,151 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, DownloadCloud, FileText, Library, SearchX } from "lucide-react";
-import { formatBytes, formatDate } from "@/lib/client";
-import { EmptyState } from "@/components/ui";
-import { DEPARTMENTS, SEMESTERS, type MaterialType } from "@/lib/types";
+import Link from "next/link";
+import { FolderPlus, Library, SearchX, Settings2 } from "lucide-react";
+import { EmptyState, ErrorState } from "@/components/ui";
 import {
-  AcademicPage,
-  Chip,
+  BackLink,
+  PageHead,
   SearchField,
   SelectField,
-  Toolbar,
-  unique,
-  useAcademics,
-  useUserNames,
-  type AcademicsPayload,
+  SignInPrompt,
+  useAsyncResource,
 } from "@/components/academics/core";
+import { Breadcrumbs, FolderCard, type LibrarySubject } from "@/components/academics/library";
+import { sortSemesters } from "@/lib/library";
 
-const MATERIAL_TYPES: MaterialType[] = ["Notes", "Previous Year Paper", "Lab Manual", "Assignment", "Reference"];
+type LibraryPayload = {
+  viewer: { id: string; role: string; department: string | null; canManage: boolean };
+  subjects: LibrarySubject[];
+};
 
 const ALL = "__all__";
 
-const TYPE_TAG: Record<MaterialType, string> = {
-  Notes: "tag",
-  "Previous Year Paper": "tag tag-accent",
-  "Lab Manual": "tag tag-warn",
-  Assignment: "tag tag-danger",
-  Reference: "tag tag-muted",
-};
-
 export default function StudyMaterialsPage() {
-  const { state, retry } = useAcademics();
+  const { state, retry } = useAsyncResource<LibraryPayload>("/api/library");
 
   return (
-    <AcademicPage
-      icon={<Library size={22} />}
-      title="Study Materials"
-      subtitle="Notes, previous year papers, lab manuals, assignments and reference books — grouped by subject."
-      state={state}
-      retry={retry}
-      loadingLabel="Loading study materials…"
-    >
-      {(data) => <MaterialsView data={data} />}
-    </AcademicPage>
+    <div className="container stack">
+      <BackLink />
+      <PageHead
+        icon={<Library size={22} />}
+        title="Study Material Library"
+        subtitle="Open a subject folder to find its chapter-wise PDFs — read online or download."
+      />
+
+      {state.status === "loading" ? <LibrarySkeleton /> : null}
+
+      {state.status === "error" ? (
+        state.auth ? <SignInPrompt /> : <ErrorState message={state.message} onRetry={retry} />
+      ) : null}
+
+      {state.status === "ready" ? <LibraryView payload={state.data} /> : null}
+    </div>
   );
 }
 
-function MaterialsView({ data }: { data: AcademicsPayload }) {
+function LibraryView({ payload }: { payload: LibraryPayload }) {
+  const { subjects, viewer } = payload;
+
   const [query, setQuery] = useState("");
-  const [department, setDepartment] = useState(data.viewer.department);
+  const [department, setDepartment] = useState(ALL);
   const [semester, setSemester] = useState(ALL);
-  const [subject, setSubject] = useState(ALL);
-  const [type, setType] = useState<MaterialType | "All">("All");
+
+  const departments = useMemo(
+    () => unique(subjects.map((s) => s.department).filter(Boolean)).sort((a, b) => a.localeCompare(b)),
+    [subjects],
+  );
+  const semesters = useMemo(
+    () => sortSemesters(unique(subjects.map((s) => s.semester).filter(Boolean))),
+    [subjects],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return data.materials.filter((m) => {
-      if (department !== ALL && m.department !== department) return false;
-      if (semester !== ALL && m.semester !== semester) return false;
-      if (subject !== ALL && m.subject !== subject) return false;
-      if (type !== "All" && m.type !== type) return false;
-      if (q && !`${m.title} ${m.subject} ${m.type} ${m.department}`.toLowerCase().includes(q)) return false;
+    return subjects.filter((s) => {
+      if (department !== ALL && s.department !== department) return false;
+      if (semester !== ALL && s.semester !== semester) return false;
+      if (q && !`${s.name} ${s.code} ${s.description} ${s.department}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [data.materials, query, department, semester, subject, type]);
+  }, [subjects, query, department, semester]);
 
-  const subjectOptions = useMemo(
-    () => [ALL, ...unique(data.materials.filter((m) => department === ALL || m.department === department).map((m) => m.subject))],
-    [data.materials, department],
-  );
-
-  const uploaderIds = filtered.map((m) => m.uploadedBy);
-  const uploaderNames = useUserNames(uploaderIds);
-
-  const groups = useMemo(() => {
-    const map = new Map<string, AcademicsPayload["materials"]>();
-    filtered.forEach((m) => {
-      const list = map.get(m.subject) ?? [];
-      list.push(m);
-      map.set(m.subject, list);
-    });
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filtered]);
-
-  const filtersActive =
-    query.trim() !== "" || department !== ALL || semester !== ALL || subject !== ALL || type !== "All";
+  const totalFiles = filtered.reduce((n, s) => n + s.fileCount, 0);
+  const filtersActive = query.trim() !== "" || department !== ALL || semester !== ALL;
 
   function clearFilters() {
     setQuery("");
-    setDepartment(data.viewer.department);
+    setDepartment(ALL);
     setSemester(ALL);
-    setSubject(ALL);
-    setType("All");
   }
 
-  function changeDepartment(next: string) {
-    setDepartment(next);
-    setSubject(ALL);
-  }
-
-  function changeSemester(next: string) {
-    setSemester(next);
-    setSubject(ALL);
+  if (subjects.length === 0) {
+    return (
+      <div className="stack">
+        <Breadcrumbs items={[{ label: "Study Materials" }]} />
+        <EmptyState
+          icon={<FolderPlus size={26} />}
+          title="No subject folders yet"
+          body={
+            viewer.canManage
+              ? "Create your first subject folder from the admin dashboard, then upload chapter-wise PDFs into it."
+              : "Your faculty has not published any study material yet. Check back soon."
+          }
+          action={
+            viewer.canManage ? (
+              <Link className="btn btn-primary" href="/admin?tab=library">
+                <Settings2 size={16} aria-hidden="true" /> Manage library
+              </Link>
+            ) : undefined
+          }
+        />
+      </div>
+    );
   }
 
   return (
     <div className="stack">
-      <Toolbar hint="Materials are uploaded by faculty from the admin dashboard. Downloads are generated demo documents.">
+      <Breadcrumbs items={[{ label: "Study Materials" }]} />
+
+      {viewer.canManage ? (
+        <div className="row" style={{ justifyContent: "flex-end" }}>
+          <Link className="btn btn-soft btn-sm" href="/admin?tab=library">
+            <Settings2 size={15} aria-hidden="true" /> Manage library
+          </Link>
+        </div>
+      ) : null}
+
+      <section className="card card-pad stack" aria-label="Find a subject">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <SearchField id="material-search" label="Search" value={query} onChange={setQuery} placeholder="Search title or subject…" />
-          <SelectField
-            id="material-department"
-            label="Department"
-            value={department}
-            onChange={changeDepartment}
-            options={[{ value: ALL, label: "All departments" }, ...DEPARTMENTS.map((d) => ({ value: d, label: d }))]}
+          <SearchField
+            id="library-search"
+            label="Search subjects"
+            value={query}
+            onChange={setQuery}
+            placeholder="Subject name or code…"
           />
           <SelectField
-            id="material-semester"
+            id="library-department"
+            label="Branch"
+            value={department}
+            onChange={setDepartment}
+            options={[{ value: ALL, label: "All branches" }, ...departments.map((d) => ({ value: d, label: d }))]}
+          />
+          <SelectField
+            id="library-semester"
             label="Semester"
             value={semester}
-            onChange={changeSemester}
-            options={[{ value: ALL, label: "All semesters" }, ...SEMESTERS.map((s) => ({ value: s, label: s }))]}
+            onChange={setSemester}
+            options={[{ value: ALL, label: "All semesters" }, ...semesters.map((s) => ({ value: s, label: s }))]}
           />
         </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <SelectField
-            id="material-subject"
-            label="Subject"
-            value={subject}
-            onChange={setSubject}
-            options={subjectOptions.map((s) => ({ value: s, label: s === ALL ? "All subjects" : s }))}
-          />
-          <div className="field">
-            <span className="label" id="material-type-label">
-              Type
-            </span>
-            <div className="chip-row" role="group" aria-labelledby="material-type-label">
-              <Chip active={type === "All"} onClick={() => setType("All")}>
-                All types
-              </Chip>
-              {MATERIAL_TYPES.map((t) => (
-                <Chip key={t} active={type === t} onClick={() => setType(t)}>
-                  {t}
-                </Chip>
-              ))}
-            </div>
-          </div>
-        </div>
-      </Toolbar>
+      </section>
 
       <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <p className="text-sm muted" role="status">
-          <strong>{filtered.length}</strong> file{filtered.length === 1 ? "" : "s"} ·{" "}
-          {formatBytes(filtered.reduce((n, m) => n + m.size, 0))} total
+          <strong>{filtered.length}</strong> subject{filtered.length === 1 ? "" : "s"} · <strong>{totalFiles}</strong> PDF
+          {totalFiles === 1 ? "" : "s"}
         </p>
         {filtersActive ? (
           <button type="button" className="btn btn-ghost btn-sm" onClick={clearFilters}>
@@ -166,8 +157,8 @@ function MaterialsView({ data }: { data: AcademicsPayload }) {
       {filtered.length === 0 ? (
         <EmptyState
           icon={<SearchX size={26} />}
-          title="No materials match those filters"
-          body="Try another subject or semester, clear the search box, or switch back to all departments."
+          title="No folders match those filters"
+          body="Try a different branch or semester, or clear the search box."
           action={
             <button type="button" className="btn btn-ghost" onClick={clearFilters}>
               Reset filters
@@ -175,64 +166,31 @@ function MaterialsView({ data }: { data: AcademicsPayload }) {
           }
         />
       ) : (
-        groups.map(([subjectName, list]) => (
-          <section key={subjectName} className="stack" aria-label={`Materials for ${subjectName}`}>
-            <div className="row" style={{ gap: 8 }}>
-              <FileText size={17} aria-hidden="true" style={{ color: "var(--color-brand-600)" }} />
-              <h2 style={{ fontSize: 17 }}>{subjectName}</h2>
-              <span className="tag tag-muted">{list.length}</span>
-            </div>
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-              {list.map((m) => (
-                <article key={m.id} className="card card-pad stack" style={{ gap: 8 }}>
-                  <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                    <h3 style={{ fontSize: 15.5, flex: 1, minWidth: 0 }}>{m.title}</h3>
-                    <span className={TYPE_TAG[m.type]}>{m.type}</span>
-                  </div>
-
-                  <p className="text-sm muted">
-                    {m.subject} · {m.department} · {m.semester}
-                  </p>
-
-                  <dl
-                    className="text-sm"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "auto 1fr",
-                      columnGap: 12,
-                      rowGap: 4,
-                      margin: 0,
-                    }}
-                  >
-                    <dt className="muted">Size</dt>
-                    <dd style={{ margin: 0 }}>{formatBytes(m.size)}</dd>
-                    <dt className="muted">Uploaded</dt>
-                    <dd style={{ margin: 0 }}>
-                      {formatDate(m.createdAt)} by {uploaderNames[m.uploadedBy] ?? m.uploadedBy}
-                    </dd>
-                    <dt className="muted">Downloads</dt>
-                    <dd style={{ margin: 0 }}>{m.downloads}</dd>
-                  </dl>
-
-                  <div className="row" style={{ justifyContent: "flex-end" }}>
-                    <a
-                      className="btn btn-primary btn-sm"
-                      href={`/api/download?type=material&id=${encodeURIComponent(m.id)}&format=pdf`}
-                    >
-                      <Download size={15} aria-hidden="true" /> Download
-                    </a>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        ))
+        <div className="lib-grid">
+          {filtered.map((subject) => (
+            <FolderCard key={subject.id} subject={subject} />
+          ))}
+        </div>
       )}
-
-      <p className="hint row" style={{ gap: 6 }}>
-        <DownloadCloud size={14} aria-hidden="true" />
-        Download counts update when faculty re-publish a file. All entries are sample/demo content.
-      </p>
     </div>
   );
+}
+
+function LibrarySkeleton() {
+  return (
+    <div className="stack">
+      <div className="card card-pad">
+        <div className="lib-skeleton" style={{ height: 24, maxWidth: 320 }} />
+      </div>
+      <div className="lib-grid" aria-hidden="true">
+        {Array.from({ length: 8 }, (_, i) => (
+          <div key={i} className="lib-skeleton" style={{ height: 250 }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function unique(values: string[]): string[] {
+  return Array.from(new Set(values));
 }

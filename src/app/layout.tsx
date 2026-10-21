@@ -18,8 +18,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const user = await getCurrentUser();
 
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <AppProviders initialUser={user ? publicUser(user) : null}>
           <a href="#main-content" className="sr-only">
             Skip to main content

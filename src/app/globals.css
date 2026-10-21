@@ -1762,17 +1762,34 @@
 }
 
 .university-emblem {
+  position: relative;
   width: 128px;
   height: 128px;
   border-radius: 50%;
-  background: var(--emblem);
-  color: #fff;
+  background: #fff;
   display: grid;
   place-items: center;
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  box-shadow: inset 0 0 0 3px rgba(255,255,255,0.18), 0 14px 28px -18px rgba(15,23,42,0.35);
+  overflow: hidden;
+  box-shadow: 0 14px 28px -18px rgba(15,23,42,0.35);
+}
+
+/* Ring drawn as an overlay so the logo image can never break it. */
+.university-emblem::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--border);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.university-emblem img {
+  width: 100%;
+  height: 100%;
+  padding: 14px;
+  box-sizing: border-box;
+  object-fit: contain;
 }
 
 .university-short-name {
@@ -2012,6 +2029,373 @@
   flex: 1;
   min-width: 160px;
   max-width: 240px;
+}
+
+/* ------------------ study material library (folders + PDFs) ------------- */
+
+.lib-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-size: 13.5px;
+  color: var(--color-ink-500);
+}
+
+.lib-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.lib-crumb a:hover {
+  color: var(--color-brand-700);
+  text-decoration: underline;
+}
+
+.lib-crumb [aria-current="page"] {
+  color: var(--color-ink-900);
+  font-weight: 600;
+}
+
+.lib-crumb-sep {
+  color: var(--color-ink-400);
+  margin: 0 2px;
+}
+
+.lib-grid {
+  display: grid;
+  gap: 24px 22px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  padding-top: 16px;
+}
+
+@media (max-width: 560px) {
+  .lib-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 22px 14px;
+  }
+}
+
+/* Vertical "folder" card — tall, rounded, with a binder tab and gradient icon. */
+.lib-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 250px;
+  padding: 26px 20px 20px;
+  border-radius: 22px;
+  background: linear-gradient(165deg, #ffffff 0%, #f8f7ff 62%, #f3f0ff 100%);
+  border: 1px solid rgba(99, 102, 241, 0.16);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 18px 42px -26px rgba(49, 29, 110, 0.4);
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 0.28s ease,
+    border-color 0.28s ease;
+}
+
+.lib-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #1e1b4b 0%, #6d28d9 55%, #a855f7 100%);
+  opacity: 0.92;
+}
+
+.lib-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  border-color: rgba(124, 58, 237, 0.55);
+  box-shadow: 0 26px 54px -22px rgba(76, 29, 149, 0.55), 0 0 0 3px rgba(124, 58, 237, 0.16);
+}
+
+.lib-card-tab {
+  position: absolute;
+  top: 12px;
+  left: 18px;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  max-width: calc(100% - 36px);
+  padding: 0 11px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(135deg, #1e1b4b, #6d28d9);
+  color: #ede9fe;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-shadow: 0 8px 18px -10px rgba(76, 29, 149, 0.85);
+}
+
+.lib-card-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-top: 18px;
+  border-radius: 16px;
+  color: #f5f3ff;
+  background: linear-gradient(140deg, #1e1b4b 0%, #5b21b6 58%, #8b5cf6 100%);
+  box-shadow: 0 14px 26px -14px rgba(76, 29, 149, 0.8);
+  transition: transform 0.28s ease;
+}
+
+.lib-card:hover .lib-card-icon {
+  transform: translateY(-2px) rotate(-3deg);
+}
+
+.lib-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+}
+
+.lib-card-title {
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: #1e1b4b;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.lib-card-desc {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-ink-500);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.lib-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(99, 102, 241, 0.14);
+}
+
+.lib-card-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #4c1d95;
+}
+
+.lib-card-sem {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+/* PDF list ------------------------------------------------------------- */
+
+.lib-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lib-file {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--color-ink-200);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.lib-file:hover {
+  transform: translateY(-2px);
+  border-color: rgba(124, 58, 237, 0.4);
+  box-shadow: 0 16px 36px -22px rgba(76, 29, 149, 0.55);
+}
+
+.lib-chapter {
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-width: 46px;
+  height: 46px;
+  padding: 0 6px;
+  border-radius: 13px;
+  background: linear-gradient(140deg, #eef2ff, #ede9fe);
+  color: #4c1d95;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.lib-file-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.lib-file-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--color-ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lib-file-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--color-ink-500);
+}
+
+.lib-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46ch;
+}
+
+.lib-file-dot {
+  color: var(--color-ink-400);
+}
+
+.lib-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: none;
+}
+
+@media (max-width: 640px) {
+  .lib-file {
+    flex-wrap: wrap;
+  }
+
+  .lib-file-actions {
+    width: 100%;
+  }
+
+  .lib-file-actions .btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* PDF viewer ----------------------------------------------------------- */
+
+.lib-viewer {
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  border: 1px solid var(--color-ink-200);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.lib-viewer-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-ink-200);
+  background: linear-gradient(180deg, #fbfbff, #f5f4fe);
+}
+
+.lib-viewer-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 180px;
+}
+
+.lib-viewer-stage {
+  position: relative;
+  height: clamp(420px, calc(100vh - 300px), 900px);
+  background:
+    repeating-linear-gradient(45deg, #f8fafc 0 12px, #f1f5f9 12px 24px);
+}
+
+.lib-viewer-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.lib-viewer-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--color-ink-500);
+  font-size: 14px;
+  background: rgba(248, 250, 252, 0.75);
+  z-index: 1;
+}
+
+.lib-spin {
+  animation: lib-spin 0.9s linear infinite;
+}
+
+@keyframes lib-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Skeletons ------------------------------------------------------------ */
+
+.lib-skeleton {
+  border-radius: 16px;
+  background: linear-gradient(90deg, #eef1f6 25%, #e6e9f2 37%, #eef1f6 63%);
+  background-size: 400% 100%;
+  animation: lib-shimmer 1.3s ease infinite;
+}
+
+@keyframes lib-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
 }
 
 /* ------------------------------ societies ------------------------------- */
